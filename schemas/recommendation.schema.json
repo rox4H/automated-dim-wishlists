@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/rox4H/destiny-2-weapon-database/main/schemas/recommendation.schema.json",
+  "$id": "https://raw.githubusercontent.com/rox4H/automated-dim-wishlists/main/schemas/recommendation.schema.json",
   "title": "Weapon roll recommendation record",
   "description": "Recommendations are community-contributed roll suggestions. Verification confirms the factual dependencies recorded for each entry; a community record does not claim optimality or testing in a specific sandbox.",
   "type": "object",

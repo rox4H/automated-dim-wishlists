@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/rox4H/destiny-2-weapon-database/main/schemas/weapon.schema.json",
+  "$id": "https://raw.githubusercontent.com/rox4H/automated-dim-wishlists/main/schemas/weapon.schema.json",
   "title": "Destiny 2 weapon record",
   "description": "A factual record for one weapon. Unknown or unverified facts must not be guessed.",
   "type": "object",

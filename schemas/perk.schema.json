@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/rox4H/destiny-2-weapon-database/main/schemas/perk.schema.json",
+  "$id": "https://raw.githubusercontent.com/rox4H/automated-dim-wishlists/main/schemas/perk.schema.json",
   "title": "Destiny 2 perk definition",
   "description": "A compact canonical record for one perk or weapon perk component. Keep weapon-specific roll legality in weapon-perk-pool records.",
   "type": "object",
