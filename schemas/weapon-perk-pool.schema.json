@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/rox4H/destiny-2-weapon-database/main/schemas/weapon-perk-pool.schema.json",
+  "$id": "https://raw.githubusercontent.com/rox4H/automated-dim-wishlists/main/schemas/weapon-perk-pool.schema.json",
   "title": "Weapon perk pool",
   "description": "The perk options attached to a specific weapon definition/version. This is factual item data, not a recommendation.",
   "type": "object",

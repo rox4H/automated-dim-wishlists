@@ -108,6 +108,10 @@ class CommunityPublicationWorkflowTests(unittest.TestCase):
         self.assertNotIn("PUBLISHER_APP_TOKEN", merge_step)
         self.assertNotIn("publisherAppGithub", PUBLISH)
 
+    def test_publisher_token_is_scoped_to_the_current_repository(self):
+        self.assertIn("repositories: ${{ github.event.repository.name }}", PUBLISH)
+        self.assertNotIn("repositories: destiny-2-weapon-database", PUBLISH)
+
     def test_codeowners_covers_the_repository_owner(self):
         codeowners = (ROOT / ".github" / "CODEOWNERS").read_text(encoding="utf-8")
         self.assertRegex(codeowners, r"(?m)^\*\s+@rox4H\s*$")

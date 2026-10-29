@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/rox4H/destiny-2-weapon-database/main/schemas/community-recommendations.schema.json",
+  "$id": "https://raw.githubusercontent.com/rox4H/automated-dim-wishlists/main/schemas/community-recommendations.schema.json",
   "title": "Mode-specific aggregated community weapon recommendations",
   "description": "Community-submitted recommendations published automatically after canonical weapon, complete perk-pool, selected-perk, and slot checks. The publication status does not imply maintainer review of the roll or sandbox-specific performance.",
   "type": "object",

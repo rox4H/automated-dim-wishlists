@@ -254,7 +254,8 @@ jobs:
           app-id: ${{ secrets.D2WD_PUBLISHER_APP_ID }}
           private-key: ${{ secrets.D2WD_PUBLISHER_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: destiny-2-weapon-database
+          # Scope the publisher token to this repository after installing the App here.
+          repositories: ${{ github.event.repository.name }}
           permission-contents: write
           permission-pull-requests: write
 
