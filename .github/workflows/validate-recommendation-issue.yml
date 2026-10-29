@@ -47,7 +47,7 @@ jobs:
 
       - name: Hydrate the latest issue body
         id: hydrate
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           EVENT_PATH: ${{ runner.temp }}/recommendation-issue-event.json
         with:
@@ -115,7 +115,7 @@ jobs:
       - name: Report this run, update labels, and always create a new comment
         id: report
         if: always() && steps.hydrate.outcome == 'success'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           EVENT_PATH: ${{ runner.temp }}/recommendation-issue-event.json
           REPORT_PATH: ${{ runner.temp }}/recommendation-issue-validation.json
@@ -296,7 +296,7 @@ jobs:
           ref: main
           persist-credentials: false
       - name: Recheck the immutable submission before dispatching publication
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           ISSUE_NUMBER: ${{ needs.validate.outputs.issue_number }}
           SNAPSHOT_SHA256: ${{ needs.validate.outputs.snapshot_sha256 }}
@@ -345,7 +345,7 @@ jobs:
           ref: main
           persist-credentials: false
       - name: Invalidate edited or reopened one-shot submissions
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         with:

@@ -42,7 +42,7 @@ jobs:
 
       - name: Hydrate and authorize the proposal
         id: hydrate
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           REQUESTED_ISSUE_NUMBER: ${{ inputs.issue_number }}
           EVENT_PATH: ${{ runner.temp }}/recommendation-issue-event.json
@@ -214,7 +214,7 @@ jobs:
 
       - name: Recheck issue snapshot immediately before publication
         id: issue-recheck
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           ISSUE_NUMBER: ${{ steps.hydrate.outputs.issue_number }}
           ISSUE_USERNAME: ${{ steps.hydrate.outputs.issue_username }}
@@ -278,7 +278,7 @@ jobs:
       - name: Open publication pull request
         id: publication-pr
         if: ${{ steps.branch.outputs.branch_name != '' }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
           EXPECTED_HEAD_SHA: ${{ steps.prepare.outputs.commit_sha }}
@@ -333,7 +333,7 @@ jobs:
       - name: Require all four pull-request status checks before merging
         id: required-pr-checks
         if: ${{ steps.publication-pr.outputs.pull_number != '' }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PULL_NUMBER: ${{ steps.publication-pr.outputs.pull_number }}
           EXPECTED_HEAD_SHA: ${{ steps.prepare.outputs.commit_sha }}
@@ -394,7 +394,7 @@ jobs:
       - name: Recheck issue snapshot and publication freshness before merge
         id: final-recheck
         if: ${{ steps.required-pr-checks.outputs.checks_passed == 'true' }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PULL_NUMBER: ${{ steps.publication-pr.outputs.pull_number }}
           ISSUE_NUMBER: ${{ steps.hydrate.outputs.issue_number }}
@@ -444,7 +444,7 @@ jobs:
       - name: Merge publication pull request through the publisher app
         id: merge
         if: ${{ steps.final-recheck.outputs.approved == 'true' }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PULL_NUMBER: ${{ steps.publication-pr.outputs.pull_number }}
           EXPECTED_HEAD_SHA: ${{ steps.prepare.outputs.commit_sha }}
@@ -484,7 +484,7 @@ jobs:
 
       - name: Confirm publication and close the issue
         if: success()
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           ISSUE_NUMBER: ${{ steps.hydrate.outputs.issue_number }}
           TARGET_PATH: ${{ steps.build.outputs.target_path }}
@@ -535,7 +535,7 @@ jobs:
 
       - name: Clean up an unmerged publication PR after a failed gate
         if: ${{ failure() && steps.publisher-token.outputs.token != '' && steps.branch.outputs.branch_name != '' }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
           PULL_NUMBER: ${{ steps.publication-pr.outputs.pull_number }}
