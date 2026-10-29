@@ -1,0 +1,23 @@
+name: Report a mistake
+description: Report an incorrect weapon or perk
+title: "Correction: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the mistake briefly. Do not include private information.
+  - type: input
+    id: weapon
+    attributes:
+      label: Weapon name or version
+      description: Which weapon is affected?
+      placeholder: avalanche_s5
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: What is wrong?
+      description: Describe the correction.
+    validations:
+      required: true

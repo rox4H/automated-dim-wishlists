@@ -1,0 +1,567 @@
+name: Publish mechanically validated community recommendation
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Open recommendation issue that passed mechanical intake
+        required: true
+        type: number
+permissions:
+  checks: read
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: community-recommendation-intake-main
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: main-publisher
+    steps:
+      - name: Check out latest main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned development dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Hydrate and authorize the proposal
+        id: hydrate
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          REQUESTED_ISSUE_NUMBER: ${{ inputs.issue_number }}
+          EVENT_PATH: ${{ runner.temp }}/recommendation-issue-event.json
+        with:
+          script: |
+            const fs = require('fs');
+            const snapshot = require('./scripts/recommendation_snapshot.cjs');
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.REQUESTED_ISSUE_NUMBER);
+            if (!Number.isInteger(issueNumber) || issueNumber < 1) {
+              core.setFailed('Provide a positive issue number.');
+              return;
+            }
+            const issue = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+            if (issue.state !== 'open' || !String(issue.title || '').startsWith('[Recommendation proposal]')) {
+              core.setFailed('Only an open [Recommendation proposal] issue can be published.');
+              return;
+            }
+            const issueLabels = (issue.labels || []).map(label => typeof label === 'string' ? label : label.name);
+            const isReadyToPublish = issueLabels.includes('intake:ready-to-publish');
+            const blockedLabels = ['needs-maintainer-review', 'intake:integration-blocked', 'intake:action-required', 'intake:submission-invalidated', 'intake:published'];
+            if (!issueLabels.includes('intake:mechanical-checks-passed') ||
+                !isReadyToPublish || blockedLabels.some(label => issueLabels.includes(label))) {
+              core.setFailed('The issue must carry both publication labels, have no blocking label, and not have been published or invalidated.');
+              return;
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issueNumber, per_page: 100 });
+            const proof = snapshot.verifySnapshot(issue, comments);
+            if (!proof.valid) { core.setFailed('The issue does not match its trusted original-submission snapshot. Publication is blocked.'); return; }
+            fs.writeFileSync(process.env.EVENT_PATH, JSON.stringify({ issue }, null, 2), 'utf8');
+            core.setOutput('issue_number', String(issue.number));
+            core.setOutput('issue_username', issue.user && issue.user.login || '');
+            core.setOutput('issue_updated_at', issue.updated_at);
+            core.setOutput('snapshot_sha256', proof.sha256);
+
+      - name: Re-run mechanical intake on the latest issue
+        run: |
+          python scripts/validate_recommendation_issue.py --event-path "$RUNNER_TEMP/recommendation-issue-event.json" --output "$RUNNER_TEMP/recommendation-issue-validation.json" --fail-on-errors
+
+      - name: Require the canonical dependency gate
+        run: |
+          python - "$RUNNER_TEMP/recommendation-issue-validation.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          blockers = report.get("publication_blockers")
+          if report.get("errors"):
+              raise SystemExit("Mechanical intake contains errors; nothing will be published.")
+          if report.get("publication_ready") is not True or not isinstance(blockers, list) or blockers:
+              details = "\n".join(f"- {item}" for item in blockers or [])
+              raise SystemExit("Exact weapon, complete pool, and all four selected perks must be verified before publication.\n" + details)
+          PY
+
+      - name: Build a mechanically validated recommendation from canonical records
+        id: build
+        env:
+          PUBLISHED_BY: ${{ github.actor }}
+          ISSUE_EVENT_PATH: ${{ runner.temp }}/recommendation-issue-event.json
+          REPORT_PATH: ${{ runner.temp }}/recommendation-issue-validation.json
+          OUTPUT_PATH: ${{ runner.temp }}/mechanically-validated-community-recommendation.json
+        run: |
+          set -euo pipefail
+          python scripts/build_verified_community_recommendation.py --event-path "$ISSUE_EVENT_PATH" --report-path "$REPORT_PATH" --published-by "$PUBLISHED_BY" --output "$OUTPUT_PATH" --github-output "$GITHUB_OUTPUT"
+
+      - name: Preflight, validate, and commit community-only changes
+        id: prepare
+        env:
+          EVENT_PATH: ${{ runner.temp }}/recommendation-issue-event.json
+          RECORD_PATH: ${{ runner.temp }}/mechanically-validated-community-recommendation.json
+          TARGET_PATH: ${{ steps.build.outputs.target_path }}
+          ISSUE_NUMBER: ${{ steps.build.outputs.issue_number }}
+          ISSUE_USERNAME: ${{ steps.build.outputs.github_username }}
+        run: |
+          set -euo pipefail
+          python scripts/merge_community_recommendation.py --record-path "$RECORD_PATH" --target-path "$TARGET_PATH" --issue-number "$ISSUE_NUMBER" --github-username "$ISSUE_USERNAME" --root .
+
+          # Community publication must never regenerate the curated export.
+          python scripts/export_dim_wishlist.py --source community --output exports/d2wd_community.txt
+          python scripts/export_dim_wishlist.py --source community --output exports/d2wd_community.txt --check
+          grep -F "BY @${ISSUE_USERNAME} |" exports/d2wd_community.txt
+
+          # The publisher must never modify curated recommendations or their export.
+          git diff --quiet HEAD -- recommendations/curated exports/d2wd_curated.txt || {
+            echo "Refusing to publish: curated recommendation JSON or the curated wishlist changed."
+            exit 1
+          }
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- "$TARGET_PATH" exports/d2wd_community.txt
+          git diff --cached --check
+          python scripts/check_community_publication_scope.py --issue-number "$ISSUE_NUMBER" --target-path "$TARGET_PATH"
+          BASE_SHA="$(git rev-parse HEAD)"
+          HAS_CHANGES=false
+          if ! git diff --cached --quiet; then
+            git commit -m "Prepare mechanically validated community recommendation from issue #${ISSUE_NUMBER}"
+            HAS_CHANGES=true
+          fi
+          echo "base_sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "has_changes=${HAS_CHANGES}" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python 3.11 for the publication gate
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install pinned development dependencies (Python 3.11)
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Validate data and run tests (Python 3.11)
+        run: |
+          python scripts/check_workflow_security.py
+          python scripts/validate_json.py
+          python -m unittest discover -s tests -v
+          python scripts/export_dim_wishlist.py --source community --check
+
+      - name: Set up Python 3.12 for the publication gate
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install pinned development dependencies (Python 3.12)
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Validate data and run tests (Python 3.12)
+        run: |
+          python scripts/validate_json.py
+          python -m unittest discover -s tests -v
+          python scripts/export_dim_wishlist.py --source community --check
+
+      - name: Set up Python 3.13 for the publication gate
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install pinned development dependencies (Python 3.13)
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Validate data and run tests (Python 3.13)
+        run: |
+          python scripts/validate_json.py
+          python -m unittest discover -s tests -v
+          python scripts/export_dim_wishlist.py --source community --check
+
+      - name: Set up Node.js for the publication gate
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Run Node.js workflow and generator tests
+        run: |
+          node --test tests/test_generate_weapon_perk_pools.mjs
+          node --test tests/test_recommendation_intake_outcome.cjs
+          node --test tests/test_recommendation_snapshot.cjs
+
+      - name: Ensure validation did not mutate the prepared commit
+        run: |
+          git diff --exit-code HEAD
+          test -z "$(git status --porcelain)"
+
+      - name: Recheck issue snapshot immediately before publication
+        id: issue-recheck
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          ISSUE_NUMBER: ${{ steps.hydrate.outputs.issue_number }}
+          ISSUE_USERNAME: ${{ steps.hydrate.outputs.issue_username }}
+          ISSUE_UPDATED_AT: ${{ steps.hydrate.outputs.issue_updated_at }}
+          SNAPSHOT_SHA256: ${{ steps.hydrate.outputs.snapshot_sha256 }}
+        with:
+          script: |
+            const snapshot = require('./scripts/recommendation_snapshot.cjs');
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const issue = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+            if (issue.state !== 'open' || !String(issue.title || '').startsWith('[Recommendation proposal]')) {
+              throw new Error('Issue is no longer an open recommendation proposal; no files were pushed.');
+            }
+            if (issue.updated_at !== process.env.ISSUE_UPDATED_AT ||
+                !issue.user || issue.user.login !== process.env.ISSUE_USERNAME) {
+              throw new Error('Issue changed after validation/verification snapshot; rerun validation and review before publishing.');
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issueNumber, per_page: 100 });
+            const proof = snapshot.verifySnapshot(issue, comments);
+            if (!proof.valid || proof.sha256 !== process.env.SNAPSHOT_SHA256) {
+              throw new Error('Issue no longer matches its original immutable submission snapshot; no files were pushed.');
+            }
+            const labels = new Set((issue.labels || []).map(label => typeof label === 'string' ? label : label.name));
+            const required = ['intake:mechanical-checks-passed', 'intake:ready-to-publish'];
+            const blocked = ['needs-maintainer-review', 'intake:integration-blocked', 'intake:action-required', 'intake:submission-invalidated', 'intake:published'];
+            if (!required.every(label => labels.has(label)) || blocked.some(label => labels.has(label))) {
+              throw new Error('Issue is no longer publication-ready or has a blocking label; no files were pushed.');
+            }
+            core.setOutput('approved', 'true');
+
+      - name: Create repository-scoped publisher token
+        id: publisher-token
+        if: ${{ steps.issue-recheck.outputs.approved == 'true' && steps.prepare.outputs.has_changes == 'true' }}
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.D2WD_PUBLISHER_APP_ID }}
+          private-key: ${{ secrets.D2WD_PUBLISHER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: destiny-2-weapon-database
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Push publication commit to an isolated branch
+        id: branch
+        if: ${{ steps.publisher-token.outputs.token != '' }}
+        env:
+          PUBLISHER_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          EXPECTED_COMMIT_SHA: ${{ steps.prepare.outputs.commit_sha }}
+          BRANCH_NAME: automation/recommendation-proposal-${{ steps.build.outputs.issue_number }}-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT_SHA"
+          AUTH_HEADER="$(printf 'x-access-token:%s' "$PUBLISHER_TOKEN" | base64 | tr -d '\n')"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0='http.https://github.com/.extraheader'
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $AUTH_HEADER"
+          git push origin "HEAD:refs/heads/$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Open publication pull request
+        id: publication-pr
+        if: ${{ steps.branch.outputs.branch_name != '' }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
+          EXPECTED_HEAD_SHA: ${{ steps.prepare.outputs.commit_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.prepare.outputs.base_sha }}
+          ISSUE_NUMBER: ${{ steps.build.outputs.issue_number }}
+          TARGET_PATH: ${{ steps.build.outputs.target_path }}
+        with:
+          github-token: ${{ steps.publisher-token.outputs.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            if (!Number.isInteger(issueNumber) || issueNumber < 1) {
+              throw new Error('Invalid source issue number.');
+            }
+            const branch = process.env.BRANCH_NAME;
+            const expectedHead = process.env.EXPECTED_HEAD_SHA;
+            const expectedBase = process.env.EXPECTED_BASE_SHA;
+            const [mainBranch, publishBranch] = await Promise.all([
+              github.rest.repos.getBranch({ owner, repo, branch: 'main' }),
+              github.rest.repos.getBranch({ owner, repo, branch }),
+            ]);
+            if (mainBranch.data.commit.sha !== expectedBase) {
+              throw new Error('main changed after the validated snapshot; publication stopped. Rerun intake to validate against the latest main.');
+            }
+            if (publishBranch.data.commit.sha !== expectedHead) {
+              throw new Error('Publication branch does not point to the commit that passed the publisher checks.');
+            }
+            const response = await github.rest.pulls.create({
+              owner, repo,
+              title: 'Publish mechanically validated community recommendation from issue #' + issueNumber,
+              head: branch,
+              base: 'main',
+              body: [
+                'Automated publication from [Recommendation proposal] issue #' + issueNumber + '.',
+                '',
+                '- Exact weapon/version and all four selected perks passed the canonical verification gate.',
+                '- Publisher-side validation and repository tests passed before this PR was created.',
+                '- The publisher will wait for all four required CI checks before merging.',
+                '- Only the target community recommendation JSON and exports/d2wd_community.txt are in scope.',
+                '',
+                'Issue: https://github.com/' + owner + '/' + repo + '/issues/' + issueNumber,
+                'Target: ' + process.env.TARGET_PATH,
+                'This PR was created by the dedicated D2WD Main Publisher app.'
+              ].join('\n'),
+            });
+            if (response.data.head.sha !== expectedHead || response.data.base.ref !== 'main') {
+              throw new Error('Created publication PR does not match the validated head/base.');
+            }
+            core.setOutput('pull_number', String(response.data.number));
+            core.setOutput('head_sha', response.data.head.sha);
+
+      - name: Require all four pull-request status checks before merging
+        id: required-pr-checks
+        if: ${{ steps.publication-pr.outputs.pull_number != '' }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          PULL_NUMBER: ${{ steps.publication-pr.outputs.pull_number }}
+          EXPECTED_HEAD_SHA: ${{ steps.prepare.outputs.commit_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.prepare.outputs.base_sha }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const pullNumber = Number(process.env.PULL_NUMBER);
+            const expectedHead = process.env.EXPECTED_HEAD_SHA;
+            const expectedBase = process.env.EXPECTED_BASE_SHA;
+            const requiredNames = [
+              'Python 3.11',
+              'Python 3.12',
+              'Python 3.13',
+              'Node.js weapon perk-pool generator tests',
+            ];
+            const deadline = Date.now() + 8 * 60 * 1000;
+            const newest = runs => [...runs].sort((a, b) =>
+              new Date(b.started_at || b.created_at).getTime() -
+              new Date(a.started_at || a.created_at).getTime()
+            )[0];
+            while (Date.now() < deadline) {
+              const pull = (await github.rest.pulls.get({
+                owner, repo, pull_number: pullNumber,
+              })).data;
+              if (pull.state !== 'open' || pull.head.sha !== expectedHead || pull.base.ref !== 'main') {
+                throw new Error('Publication PR state, branch, or head changed during CI; refusing to merge.');
+              }
+              const main = (await github.rest.repos.getBranch({ owner, repo, branch: 'main' })).data;
+              if (main.commit.sha !== expectedBase) {
+                throw new Error('main advanced while publication checks were running; refusing to merge a stale snapshot.');
+              }
+              const { data } = await github.rest.checks.listForRef({
+                owner, repo, ref: expectedHead, per_page: 100,
+              });
+              let pending = false;
+              for (const name of requiredNames) {
+                const check = newest(data.check_runs.filter(run => run.name === name && run.app && run.app.id === 15368));
+                if (!check) {
+                  pending = true;
+                  continue;
+                }
+                if (check.status === 'completed' && check.conclusion !== 'success') {
+                  throw new Error('Required GitHub Actions check failed: ' + name + ' (' + check.conclusion + ').');
+                }
+                if (check.status !== 'completed') pending = true;
+              }
+              if (!pending) {
+                core.setOutput('checks_passed', 'true');
+                core.info('All required GitHub Actions checks passed for ' + expectedHead + '.');
+                return;
+              }
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+            throw new Error('Timed out waiting for the four required pull-request checks. The publisher will not merge.');
+
+      - name: Recheck issue snapshot and publication freshness before merge
+        id: final-recheck
+        if: ${{ steps.required-pr-checks.outputs.checks_passed == 'true' }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          PULL_NUMBER: ${{ steps.publication-pr.outputs.pull_number }}
+          ISSUE_NUMBER: ${{ steps.hydrate.outputs.issue_number }}
+          ISSUE_UPDATED_AT: ${{ steps.hydrate.outputs.issue_updated_at }}
+          SNAPSHOT_SHA256: ${{ steps.hydrate.outputs.snapshot_sha256 }}
+          EXPECTED_HEAD_SHA: ${{ steps.prepare.outputs.commit_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.prepare.outputs.base_sha }}
+        with:
+          # Issue and immutable-snapshot reads must use GITHUB_TOKEN. The
+          # dedicated publisher App intentionally has no Issues permission.
+          github-token: ${{ github.token }}
+          script: |
+            const snapshot = require('./scripts/recommendation_snapshot.cjs');
+            const { owner, repo } = context.repo;
+            const pullNumber = Number(process.env.PULL_NUMBER);
+            const expectedHead = process.env.EXPECTED_HEAD_SHA;
+            const expectedBase = process.env.EXPECTED_BASE_SHA;
+            const pull = (await github.rest.pulls.get({
+              owner, repo, pull_number: pullNumber,
+            })).data;
+            const main = (await github.rest.repos.getBranch({ owner, repo, branch: 'main' })).data;
+            if (pull.state !== 'open' || pull.head.sha !== expectedHead || pull.base.ref !== 'main') {
+              throw new Error('Publication PR no longer matches the validated commit.');
+            }
+            if (main.commit.sha !== expectedBase || pull.base.sha !== expectedBase) {
+              throw new Error('main advanced after CI; refusing to merge a stale publication PR.');
+            }
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const issue = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+            if (issue.state !== 'open' || issue.updated_at !== process.env.ISSUE_UPDATED_AT ||
+                !String(issue.title || '').startsWith('[Recommendation proposal]')) {
+              throw new Error('Issue changed or closed while CI ran; refusing to merge the publication PR.');
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issueNumber, per_page: 100 });
+            const proof = snapshot.verifySnapshot(issue, comments);
+            if (!proof.valid || proof.sha256 !== process.env.SNAPSHOT_SHA256) {
+              throw new Error('Issue no longer matches its original immutable submission snapshot; refusing to merge.');
+            }
+            const labels = new Set((issue.labels || []).map(label => typeof label === 'string' ? label : label.name));
+            const required = ['intake:mechanical-checks-passed', 'intake:ready-to-publish'];
+            const blocked = ['needs-maintainer-review', 'intake:integration-blocked', 'intake:action-required', 'intake:submission-invalidated', 'intake:published'];
+            if (!required.every(label => labels.has(label)) || blocked.some(label => labels.has(label))) {
+              throw new Error('Submission labels changed during CI; refusing to merge.');
+            }
+            core.setOutput('approved', 'true');
+
+      - name: Merge publication pull request through the publisher app
+        id: merge
+        if: ${{ steps.final-recheck.outputs.approved == 'true' }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          PULL_NUMBER: ${{ steps.publication-pr.outputs.pull_number }}
+          EXPECTED_HEAD_SHA: ${{ steps.prepare.outputs.commit_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.prepare.outputs.base_sha }}
+        with:
+          # Configure github-script itself with the publisher App token. Do not
+          # import @actions/github or attempt to construct a second Octokit.
+          github-token: ${{ steps.publisher-token.outputs.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const pullNumber = Number(process.env.PULL_NUMBER);
+            const expectedHead = process.env.EXPECTED_HEAD_SHA;
+            const expectedBase = process.env.EXPECTED_BASE_SHA;
+            if (!Number.isInteger(pullNumber) || pullNumber < 1) {
+              throw new Error('Invalid publication pull request number.');
+            }
+            const [pull, main] = await Promise.all([
+              github.rest.pulls.get({ owner, repo, pull_number: pullNumber }),
+              github.rest.repos.getBranch({ owner, repo, branch: 'main' }),
+            ]);
+            if (pull.data.state !== 'open' || pull.data.head.sha !== expectedHead ||
+                pull.data.base.ref !== 'main' || pull.data.base.sha !== expectedBase) {
+              throw new Error('Publication PR no longer matches the validated head/base.');
+            }
+            if (main.data.commit.sha !== expectedBase) {
+              throw new Error('main advanced before the final merge; refusing to publish a stale snapshot.');
+            }
+            const result = await github.rest.pulls.merge({
+              owner, repo, pull_number: pullNumber,
+              merge_method: 'squash',
+              sha: expectedHead,
+            });
+            if (!result.data.merged || !result.data.sha) {
+              throw new Error('GitHub did not confirm the publication PR merge.');
+            }
+            core.setOutput('commit_sha', result.data.sha);
+
+      - name: Confirm publication and close the issue
+        if: success()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          ISSUE_NUMBER: ${{ steps.hydrate.outputs.issue_number }}
+          TARGET_PATH: ${{ steps.build.outputs.target_path }}
+          COMMIT_SHA: ${{ steps.merge.outputs.commit_sha || steps.prepare.outputs.commit_sha }}
+          HAS_CHANGES: ${{ steps.prepare.outputs.has_changes }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const issue = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+            const target = process.env.TARGET_PATH;
+            const sha = process.env.COMMIT_SHA;
+            const hasChanges = process.env.HAS_CHANGES === 'true';
+            const message = [
+              '<!-- verified-community-publication -->',
+              hasChanges ? '### Mechanically validated recommendation published' : '### Recommendation already published; no new commit needed',
+              '',
+              hasChanges
+                ? 'The proposal passed mechanical intake and canonical dependency/slot checks. Its community JSON and regenerated community DIM wishlist were committed through a dedicated pull request after all four required CI checks passed. This is mechanical validation only; no maintainer review of the submitted roll is implied. Curated recommendation JSON and exports/d2wd_curated.txt are outside the publisher write set.'
+                : 'The revalidated recommendation and community wishlist were already identical to the current main state. No new commit was needed; the existing publication is linked below. Curated recommendation JSON and exports/d2wd_curated.txt remain outside the publisher write set.',
+              '',
+              '- JSON: [' + target + '](' + 'https://github.com/' + owner + '/' + repo + '/blob/' + sha + '/' + target + ')',
+              '- Community wishlist: [exports/d2wd_community.txt](' + 'https://github.com/' + owner + '/' + repo + '/blob/' + sha + '/exports/d2wd_community.txt)',
+              '- Commit: [' + sha.slice(0, 7) + '](' + 'https://github.com/' + owner + '/' + repo + '/commit/' + sha + ')',
+              '',
+              'The JSON records the original issue creator and the GitHub Actions actor responsible for publication. Its publication_status is mechanically_validated and its validation_scope is canonical-dependencies-and-perk-slots: the exact weapon version, complete pool, and four selected perks passed the canonical checks. The bot has not reviewed the quality of the roll, and the status does not claim sandbox-specific performance or optimality.'
+            ].join('\n');
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issueNumber, per_page: 100 });
+            const previous = comments.find(comment => String(comment.body || '').includes('<!-- verified-community-publication -->'));
+            if (previous) await github.rest.issues.updateComment({ owner, repo, comment_id: previous.id, body: message });
+            else await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: message });
+
+            const label = 'intake:published';
+            try { await github.rest.issues.getLabel({ owner, repo, name: label }); }
+            catch (error) {
+              if (error.status !== 404) throw error;
+              try { await github.rest.issues.createLabel({ owner, repo, name: label, color: '8250df', description: 'Community recommendation published after canonical dependency and slot checks; no maintainer review implied.' }); }
+              catch (createError) { if (createError.status !== 422) throw createError; }
+            }
+            await github.rest.issues.addLabels({ owner, repo, issue_number: issueNumber, labels: [label] });
+            for (const stale of ['needs-maintainer-review', 'intake:mechanical-checks-passed', 'intake:ready-to-publish', 'intake:action-required', 'intake:integration-blocked']) {
+              try { await github.rest.issues.removeLabel({ owner, repo, issue_number: issueNumber, name: stale }); }
+              catch (error) { if (error.status !== 404) throw error; }
+            }
+            if (issue.state !== 'closed') {
+              await github.rest.issues.update({ owner, repo, issue_number: issueNumber, state: 'closed', state_reason: 'completed' });
+            }
+
+      - name: Clean up an unmerged publication PR after a failed gate
+        if: ${{ failure() && steps.publisher-token.outputs.token != '' && steps.branch.outputs.branch_name != '' }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
+          PULL_NUMBER: ${{ steps.publication-pr.outputs.pull_number }}
+        with:
+          github-token: ${{ steps.publisher-token.outputs.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const pullNumber = Number(process.env.PULL_NUMBER);
+            try {
+              if (Number.isInteger(pullNumber) && pullNumber > 0) {
+                const pull = (await github.rest.pulls.get({
+                  owner, repo, pull_number: pullNumber,
+                })).data;
+                if (pull.state === 'open') {
+                  await github.rest.pulls.update({
+                    owner, repo, pull_number: pullNumber, state: 'closed',
+                  });
+                }
+              }
+            } catch (error) {
+              if (error.status !== 404) core.warning('Could not close failed publication PR: ' + error.message);
+            }
+            try {
+              await github.rest.git.deleteRef({ owner, repo, ref: 'heads/' + process.env.BRANCH_NAME });
+            } catch (error) {
+              if (error.status !== 404 && error.status !== 422) {
+                core.warning('Could not remove failed publication branch: ' + error.message);
+              }
+            }

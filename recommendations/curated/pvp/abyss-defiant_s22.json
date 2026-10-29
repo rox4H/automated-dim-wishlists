@@ -1,0 +1,19 @@
+{
+  "weapon_id": "abyss-defiant_s22",
+  "mode": "pvp",
+  "verification_status": "unverified",
+  "verified_for_sandbox": null,
+  "last_reviewed": "2026-10-27",
+  "rating": null,
+  "recommendations": [
+    {
+      "name": "Crucible consistency",
+      "barrel": "arrowhead-brake",
+      "magazine": "ricochet-rounds",
+      "perk_3": "zen-moment",
+      "perk_4": "target-lock",
+      "description": "Crucible consistency: Zen Moment helps control recoil and flinch while dealing damage, while Target Lock rewards sustained damage on one target. Candidate only; not verified for current PvP balance."
+    }
+  ],
+  "weapon_perk_pool_id": "abyss-defiant_s22"
+}

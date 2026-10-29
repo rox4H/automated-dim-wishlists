@@ -1,0 +1,2 @@
+# Keep the JSON Schema validator pinned for repeatable local and CI validation.
+jsonschema==4.26.0

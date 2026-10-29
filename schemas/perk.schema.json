@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/rox4H/destiny-2-weapon-database/main/schemas/perk.schema.json",
+  "title": "Destiny 2 perk definition",
+  "description": "A compact canonical record for one perk or weapon perk component. Keep weapon-specific roll legality in weapon-perk-pool records.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "bungie_hash",
+    "perk_type",
+    "description",
+    "verification_status",
+    "last_verified",
+    "notes"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Stable lowercase slug used by weapon-perk-pool records."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "bungie_hash": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Bungie/Destiny item hash for this perk definition, when established."
+    },
+    "perk_type": {
+      "enum": [
+        "arrow",
+        "barrel",
+        "battery",
+        "blade",
+        "bolt",
+        "bowstring",
+        "guard",
+        "grip",
+        "handle",
+        "haft",
+        "intrinsic",
+        "launcher-barrel",
+        "magazine",
+        "origin-trait",
+        "other",
+        "rail",
+        "scope",
+        "sight",
+        "stock",
+        "tang",
+        "trait",
+        "weapon-mod"
+      ]
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "verification_status": {
+      "enum": [
+        "unverified",
+        "verified"
+      ]
+    },
+    "last_verified": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {},
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verification_status": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "verification_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "last_verified": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    }
+  ]
+}

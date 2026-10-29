@@ -1,0 +1,386 @@
+name: Validate community recommendation intake
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Existing recommendation issue number to validate
+        required: true
+        type: number
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    outputs:
+      publication_ready: ${{ steps.report.outputs.publication_ready }}
+      issue_number: ${{ steps.hydrate.outputs.issue_number }}
+      snapshot_sha256: ${{ steps.hydrate.outputs.snapshot_sha256 }}
+      issue_updated_at: ${{ steps.report.outputs.issue_updated_at }}
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: community-recommendation-intake-main
+      queue: max
+      cancel-in-progress: false
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'issues' && github.event.action == 'opened' && startsWith(github.event.issue.title, '[Recommendation proposal]'))) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out latest main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned development dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Hydrate the latest issue body
+        id: hydrate
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          EVENT_PATH: ${{ runner.temp }}/recommendation-issue-event.json
+        with:
+          script: |
+            const fs = require('fs');
+            const snapshot = require('./scripts/recommendation_snapshot.cjs');
+            const { owner, repo } = context.repo;
+            const requestedIssueNumber = context.eventName === 'workflow_dispatch'
+              ? (context.payload.inputs && context.payload.inputs.issue_number)
+              : (context.payload.issue && context.payload.issue.number);
+            const issueNumber = Number(requestedIssueNumber);
+            if (!Number.isInteger(issueNumber) || issueNumber < 1) { core.setFailed('Could not resolve the recommendation issue number.'); return; }
+            let issue = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+            if (issue.state !== 'open' || !String(issue.title || '').startsWith('[Recommendation proposal]')) {
+              core.setFailed('Only an open [Recommendation proposal] issue can be validated.'); return;
+            }
+            let comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issueNumber, per_page: 100 });
+            let snapshotSha256;
+            if (context.eventName === 'issues' && context.payload.action === 'opened') {
+              const eventIssue = context.payload.issue;
+              const eventHash = snapshot.computeSnapshotHash(eventIssue);
+              if (snapshot.computeSnapshotHash(issue) !== eventHash ||
+                  issue.updated_at !== eventIssue.updated_at) {
+                core.setFailed('The issue changed after creation and before its original submission could be recorded. Create a new issue; this version will not be validated or published.');
+                return;
+              }
+              const anchor = snapshot.findSnapshotAnchor(comments, issueNumber);
+              if (anchor.status === 'missing') {
+                await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: snapshot.createSnapshotComment(eventIssue) });
+              } else if (anchor.status !== 'ok' || anchor.sha256 !== eventHash) {
+                core.setFailed('A missing or conflicting original-submission snapshot was found. Publication is blocked.'); return;
+              }
+              issue = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+              comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issueNumber, per_page: 100 });
+              const proof = snapshot.verifySnapshot(issue, comments);
+              if (!proof.valid || proof.sha256 !== eventHash) {
+                core.setFailed('The issue changed while the original-submission snapshot was recorded. Create a new issue; this submission is invalid.');
+                return;
+              }
+              snapshotSha256 = proof.sha256;
+            } else {
+              const proof = snapshot.verifySnapshot(issue, comments);
+              if (!proof.valid) {
+                core.setFailed('The issue has no valid, unchanged bot-recorded submission snapshot. Edited, reopened, old, or conflicting issues cannot be republished; create a new issue.');
+                return;
+              }
+              const labels = new Set((issue.labels || []).map(label => typeof label === 'string' ? label : label.name));
+              if (labels.has('intake:submission-invalidated') || labels.has('intake:published')) {
+                core.setFailed('This one-shot submission is invalidated or already published. Create a new issue for another proposal.');
+                return;
+              }
+              snapshotSha256 = proof.sha256;
+            }
+            fs.writeFileSync(process.env.EVENT_PATH, JSON.stringify({ issue }, null, 2), 'utf8');
+            core.setOutput('issue_number', String(issue.number));
+            core.setOutput('issue_updated_at', issue.updated_at);
+            core.setOutput('snapshot_sha256', snapshotSha256);
+
+      - name: Run mechanical intake and canonical-dependency checks
+        id: validate
+        continue-on-error: true
+        run: |
+          python scripts/validate_recommendation_issue.py --event-path "$RUNNER_TEMP/recommendation-issue-event.json" --output "$RUNNER_TEMP/recommendation-issue-validation.json" --github-output "$GITHUB_OUTPUT" --fail-on-errors
+
+      - name: Report this run, update labels, and always create a new comment
+        id: report
+        if: always() && steps.hydrate.outcome == 'success'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          EVENT_PATH: ${{ runner.temp }}/recommendation-issue-event.json
+          REPORT_PATH: ${{ runner.temp }}/recommendation-issue-validation.json
+          ISSUE_NUMBER: ${{ steps.hydrate.outputs.issue_number }}
+          ISSUE_UPDATED_AT: ${{ steps.hydrate.outputs.issue_updated_at }}
+          SNAPSHOT_SHA256: ${{ steps.hydrate.outputs.snapshot_sha256 }}
+          VALIDATION_STEP_OUTCOME: ${{ steps.validate.outcome }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const snapshot = require('./scripts/recommendation_snapshot.cjs');
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const current = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+            const hydrated = JSON.parse(fs.readFileSync(process.env.EVENT_PATH, 'utf8')).issue;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issueNumber, per_page: 100 });
+            const proof = snapshot.verifySnapshot(current, comments);
+            const currentLabels = new Set((current.labels || []).map(label => typeof label === 'string' ? label : label.name));
+            const stale = current.title !== hydrated.title ||
+              String(current.body || '') !== String(hydrated.body || '') ||
+              current.updated_at !== process.env.ISSUE_UPDATED_AT ||
+              !proof.valid || proof.sha256 !== process.env.SNAPSHOT_SHA256;
+            const isProposal = String(current.title || '').startsWith('[Recommendation proposal]');
+            const invalidated = currentLabels.has('intake:submission-invalidated') || currentLabels.has('intake:published');
+            const eligible = !stale && !invalidated && current.state === 'open' && isProposal;
+
+            const reportExists = fs.existsSync(process.env.REPORT_PATH);
+            const report = reportExists
+              ? JSON.parse(fs.readFileSync(process.env.REPORT_PATH, 'utf8'))
+              : { errors: ['Validation did not produce a report.'], warnings: [], checks: [], publication_blockers: [] };
+            const errors = Array.isArray(report.errors) ? report.errors : ['Validation report is incomplete.'];
+            const warnings = Array.isArray(report.warnings) ? report.warnings : [];
+            const blockers = Array.isArray(report.publication_blockers) ? report.publication_blockers : [];
+            const systemFailure = !reportExists ||
+              (process.env.VALIDATION_STEP_OUTCOME === 'failure' && errors.length === 0) ||
+              errors.some(error => String(error).startsWith('Could not safely enforce recommendation uniqueness:'));
+            const passed = !systemFailure && errors.length === 0;
+
+            const labels = {
+              passed: { name: 'intake:mechanical-checks-passed', color: '2da44e', description: 'Form structure, canonical references, and perk-slot mapping passed mechanical checks.' },
+              review: { name: 'needs-maintainer-review', color: 'fbca04', description: 'Canonical weapon/pool/perk data needs review; the proposed roll itself is not maintainer-reviewed.' },
+              failed: { name: 'intake:action-required', color: 'd73a4a', description: 'Recommendation proposal has blocking intake errors.' },
+              ready: { name: 'intake:ready-to-publish', color: '1f883d', description: 'Canonical weapon/pool/perks passed the dependency and slot checks; the roll itself has not been maintainer-reviewed.' },
+              integration: { name: 'intake:integration-blocked', color: 'd1242f', description: 'Verified publication was blocked by a repository, test, or export failure.' },
+              invalidated: { name: 'intake:submission-invalidated', color: 'd1242f', description: 'Submission was edited or reopened after creation; create a new issue.' }
+            };
+            for (const label of Object.values(labels)) {
+              try { await github.rest.issues.getLabel({ owner, repo, name: label.name }); }
+              catch (error) {
+                if (error.status !== 404) throw error;
+                try { await github.rest.issues.createLabel({ owner, repo, ...label }); }
+                catch (createError) { if (createError.status !== 422) throw createError; }
+              }
+            }
+
+            if (eligible) {
+              if (systemFailure) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: issueNumber, labels: [labels.integration.name] });
+                for (const label of [labels.passed, labels.review, labels.failed, labels.ready]) {
+                  try { await github.rest.issues.removeLabel({ owner, repo, issue_number: issueNumber, name: label.name }); }
+                  catch (error) { if (error.status !== 404) throw error; }
+                }
+              } else if (passed) {
+                const dependenciesVerified = report.publication_ready === true && blockers.length === 0;
+                const targetLabels = dependenciesVerified
+                  ? [labels.passed.name, labels.ready.name]
+                  : [labels.passed.name, labels.review.name];
+                await github.rest.issues.addLabels({
+                  owner, repo, issue_number: issueNumber, labels: targetLabels
+                });
+                const staleLabels = dependenciesVerified
+                  ? [labels.failed, labels.review, labels.integration]
+                  : [labels.failed, labels.ready, labels.integration];
+                for (const label of staleLabels) {
+                  try { await github.rest.issues.removeLabel({ owner, repo, issue_number: issueNumber, name: label.name }); }
+                  catch (error) { if (error.status !== 404) throw error; }
+                }
+              } else {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: issueNumber, labels: [labels.failed.name] });
+                for (const label of [labels.passed, labels.review, labels.ready, labels.integration]) {
+                  try { await github.rest.issues.removeLabel({ owner, repo, issue_number: issueNumber, name: label.name }); }
+                  catch (error) { if (error.status !== 404) throw error; }
+                }
+              }
+            }
+
+            // A blocking intake error closes the proposal. Re-check title/body/state
+            // before closing so a late edit is not closed based on an old snapshot.
+            let intakeErrorClosed = false;
+            let issueChangedDuringCloseCheck = false;
+            if (eligible && !systemFailure && !passed) {
+              const latestForClose = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+              const sameSnapshot = latestForClose.title === hydrated.title &&
+                String(latestForClose.body || '') === String(hydrated.body || '');
+              if (latestForClose.state === 'open' && sameSnapshot) {
+                await github.rest.issues.update({ owner, repo, issue_number: issueNumber, state: 'closed', state_reason: 'not_planned' });
+                intakeErrorClosed = true;
+              } else {
+                issueChangedDuringCloseCheck = true;
+              }
+            }
+
+            const clean = value => String(value || '').replace(/\r/g, '').split('\n').join(' ').trim();
+            let heading;
+            let summary;
+            if (stale) {
+              heading = '### Submission invalidated: issue changed during validation';
+              summary = 'The original issue snapshot or update timestamp no longer matches. This one-shot submission will not be published; create a new issue for a revised recommendation. No recommendation files were changed.';
+            } else if (!eligible) {
+              heading = '### Validation run completed without changing this issue';
+              summary = 'Intake validation only applies to open issues titled [Recommendation proposal]. No repository files were changed.';
+            } else if (systemFailure) {
+              heading = '### Validation incomplete: workflow/system error';
+              summary = 'The validator could not complete reliably. The issue remains open and has not been published; see the workflow run for details.';
+            } else if (!passed) {
+              if (intakeErrorClosed) {
+                heading = '### Intake result: action required — issue closed';
+                summary = 'Blocking intake errors were found, so automation closed this issue. Correct the form and reopen it to rerun validation. No JSON or wishlist was published.';
+              } else if (issueChangedDuringCloseCheck) {
+                heading = '### Validation stopped: issue changed during handling';
+                summary = 'The issue changed while the validation result was being applied, so automation did not close it using a stale snapshot. Reopen or edit the latest version to rerun validation. No JSON or wishlist was published.';
+              } else {
+                heading = '### Intake result: action required';
+                summary = 'Blocking intake errors were found. No JSON or wishlist was published.';
+              }
+            } else if (report.publication_ready === true && blockers.length === 0) {
+              heading = '### Intake result: ready to publish';
+              summary = 'Canonical dependency checks passed: the exact versioned weapon, complete perk pool, and four selected perks are verified and map to their required slots. The bot will publish this proposal automatically. This status is mechanical validation only; no maintainer has reviewed the recommendation itself and it is not a sandbox-performance or optimality claim.';
+            } else {
+              heading = '### Intake result: needs maintainer review';
+              summary = 'Mechanical intake passed, but one or more publication dependencies remain unverified or incomplete. The issue stays open with needs-maintainer-review until the exact weapon, its complete version-specific pool, and all four selected perks pass the canonical verification gate. No JSON or wishlist was published.';
+            }
+
+            const cleanLine = value => String(value || '').replace(/\r/g, '').split('\n').join(' ').trim();
+            const lines = [
+              '<!-- recommendation-intake-run:' + process.env.RUN_ID + ' -->',
+              heading,
+              summary,
+              '',
+              '- Workflow run: [#' + process.env.RUN_NUMBER + '](' + process.env.RUN_URL + ')',
+              '- Run ID: ' + process.env.RUN_ID,
+              '',
+              '#### Blocking intake checks',
+              ...(errors.length ? errors.map(item => '- ' + cleanLine(item)) : ['- None.']),
+              '',
+              '#### Canonical dependency blockers',
+              ...(blockers.length ? blockers.slice(0, 20).map(item => '- ' + cleanLine(item)) : ['- None.']),
+              ...(blockers.length > 20 ? ['- ... plus ' + (blockers.length - 20) + ' more blocker(s).'] : []),
+              '',
+              '#### Warnings',
+              ...(warnings.length ? warnings.map(item => '- ' + cleanLine(item)) : ['- None reported.'])
+            ].join('\n');
+            await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: lines });
+            const publicationReady = eligible && !stale && !systemFailure && passed &&
+              report.publication_ready === true && blockers.length === 0;
+            const finalIssue = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+            core.setOutput('eligible', String(eligible));
+            core.setOutput('stale', String(stale));
+            core.setOutput('publication_ready', String(publicationReady));
+            core.setOutput('issue_updated_at', finalIssue.updated_at);
+
+  dispatch-publication:
+    needs: validate
+    if: ${{ needs.validate.outputs.publication_ready == 'true' }}
+    permissions:
+      actions: write
+      contents: read
+      issues: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out trusted main without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Recheck the immutable submission before dispatching publication
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          ISSUE_NUMBER: ${{ needs.validate.outputs.issue_number }}
+          SNAPSHOT_SHA256: ${{ needs.validate.outputs.snapshot_sha256 }}
+          ISSUE_UPDATED_AT: ${{ needs.validate.outputs.issue_updated_at }}
+        with:
+          script: |
+            const snapshot = require('./scripts/recommendation_snapshot.cjs');
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const issue = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+            if (!Number.isInteger(issueNumber) || issueNumber < 1 || issue.state !== 'open' ||
+                issue.updated_at !== process.env.ISSUE_UPDATED_AT ||
+                !String(issue.title || '').startsWith('[Recommendation proposal]')) {
+              throw new Error('Issue state or update timestamp changed after validation; publication was not dispatched.');
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issueNumber, per_page: 100 });
+            const proof = snapshot.verifySnapshot(issue, comments);
+            if (!proof.valid || proof.sha256 !== process.env.SNAPSHOT_SHA256) {
+              throw new Error('Issue no longer matches its bot-recorded original submission; publication was not dispatched.');
+            }
+            const labels = new Set((issue.labels || []).map(label => typeof label === 'string' ? label : label.name));
+            const required = ['intake:mechanical-checks-passed', 'intake:ready-to-publish'];
+            const blocked = ['needs-maintainer-review', 'intake:integration-blocked', 'intake:action-required', 'intake:submission-invalidated', 'intake:published'];
+            if (!required.every(label => labels.has(label)) || blocked.some(label => labels.has(label))) {
+              throw new Error('Submission labels are not publication-ready; nothing was dispatched.');
+            }
+            await github.rest.actions.createWorkflowDispatch({
+              owner, repo,
+              workflow_id: 'publish-verified-community-recommendation.yml',
+              ref: 'main',
+              inputs: { issue_number: String(issue.number) },
+            });
+            core.info('Dispatched publication only after verifying the original submission hash, issue state, timestamp, and labels.');
+
+  guard-submission-mutation:
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'issues' && (github.event.action == 'edited' || github.event.action == 'reopened') && (startsWith(github.event.issue.title, '[Recommendation proposal]') || contains(github.event.issue.labels.*.name, 'intake:mechanical-checks-passed') || contains(github.event.issue.labels.*.name, 'intake:ready-to-publish') || contains(github.event.issue.labels.*.name, 'intake:submission-invalidated') || contains(github.event.issue.labels.*.name, 'intake:published')) }}
+    permissions:
+      contents: read
+      issues: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out trusted main without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Invalidate edited or reopened one-shot submissions
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        with:
+          script: |
+            const snapshot = require('./scripts/recommendation_snapshot.cjs');
+            const { owner, repo } = context.repo;
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            if (!Number.isInteger(issueNumber) || issueNumber < 1) { core.setFailed('Invalid issue number in mutation event.'); return; }
+            const issue = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issueNumber, per_page: 100 });
+            const anchor = snapshot.findSnapshotAnchor(comments, issueNumber);
+            if (anchor.status !== 'ok') {
+              core.info('No unique trusted snapshot exists; the mutation will still be invalidated fail-closed.');
+            }
+            const invalidatedLabel = { name: 'intake:submission-invalidated', color: 'd1242f',
+              description: 'Submission was edited or reopened after creation; create a new issue.' };
+            try { await github.rest.issues.getLabel({ owner, repo, name: invalidatedLabel.name }); }
+            catch (error) {
+              if (error.status !== 404) throw error;
+              try { await github.rest.issues.createLabel({ owner, repo, ...invalidatedLabel }); }
+              catch (createError) { if (createError.status !== 422) throw createError; }
+            }
+            await github.rest.issues.addLabels({ owner, repo, issue_number: issueNumber, labels: [invalidatedLabel.name] });
+            for (const name of ['intake:mechanical-checks-passed', 'intake:ready-to-publish', 'needs-maintainer-review', 'intake:action-required', 'intake:integration-blocked']) {
+              try { await github.rest.issues.removeLabel({ owner, repo, issue_number: issueNumber, name }); }
+              catch (error) { if (error.status !== 404) throw error; }
+            }
+            if (!snapshot.hasBotCommentMarker(comments, snapshot.INVALIDATION_MARKER)) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: [snapshot.INVALIDATION_MARKER, '### Submission invalidated — create a new issue', '',
+                  'This one-shot recommendation issue was edited or reopened after creation, or its original snapshot could not be established safely. The bot will not validate, replace, or republish it, and no repository files were changed by this event.',
+                  'Submit a new Recommendation proposal issue to make a revision. If an earlier version was already published, that published record remains unchanged.'].join('\n'),
+              });
+            }
+            const latest = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
+            if (latest.state === 'open') await github.rest.issues.update({ owner, repo, issue_number: issueNumber, state: 'closed', state_reason: 'not_planned' });
+            core.info('The edited/reopened submission was invalidated and cannot trigger publication.');

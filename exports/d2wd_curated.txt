@@ -1,0 +1,6 @@
+title:Weapon Wishlist — Curated
+description:Curated PvE and PvP weapon rolls.
+
+dimwishlist:item=833898322&perks=839103960,3142289711,2975200334,4293542123#notes:PVE | Solar support and add clear
+dimwishlist:item=833898322&perks=148202464,3230963543,1528286896,4293542123#notes:PVE | Sustained add clear
+dimwishlist:item=833898322&perks=839103960,2728077304,11612903,365154968#notes:PVP | Crucible consistency

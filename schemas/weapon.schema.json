@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/rox4H/destiny-2-weapon-database/main/schemas/weapon.schema.json",
+  "title": "Destiny 2 weapon record",
+  "description": "A factual record for one weapon. Unknown or unverified facts must not be guessed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "bungie_hash",
+    "weapon_type",
+    "damage_type",
+    "ammo_type",
+    "frame",
+    "rarity",
+    "source_activity",
+    "season",
+    "craftable",
+    "origin_trait",
+    "verification_status",
+    "last_verified",
+    "notes",
+    "season_number",
+    "breaker",
+    "deepsight_harmonizable"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*_s[0-9]+(?:-[0-9]+)?$",
+      "description": "Stable lowercase seasonal weapon-version ID. Every ID ends in the underscore season suffix _s<season>; append -<item-hash> only when distinct definitions share a name in the same season."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "bungie_hash": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "weapon_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "damage_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "ammo_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "description": "Ammo type in the represented item definition. Historical Year 1 records may use legacy labels such as Energy; Forsaken-era and later records generally use Primary, Special, or Heavy. This is distinct from weapon_slot."
+    },
+    "frame": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "rarity": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "source_activity": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "season": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "craftable": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "origin_trait": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "verification_status": {
+      "enum": [
+        "verified",
+        "unverified"
+      ]
+    },
+    "last_verified": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "weapon_slot": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "Kinetic",
+        "Energy",
+        "Power",
+        null
+      ],
+      "description": "The equip slot (not the weapon's damage element)."
+    },
+    "foundry": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "description": "Weapon foundry, when known."
+    },
+    "catalogue_category": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "seasonal-activity",
+        "world-drop",
+        "season-pass",
+        "dawning",
+        "vanguard",
+        "crucible",
+        "nightfall",
+        "trials",
+        "iron-banner",
+        "gambit",
+        "ritual",
+        "dungeon",
+        "raid-reissue",
+        "unknown",
+        "neomuna",
+        "raid",
+        "guardian-games",
+        "destination",
+        "world-drop-reissue",
+        "seasonal-event",
+        null
+      ],
+      "description": "Catalogue/acquisition group for navigation; not a guarantee of current availability."
+    },
+    "variant_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*_s[0-9]+(?:-[0-9]+)?$",
+      "description": "Stable ID of the base weapon-version record for a separately catalogued variant such as Adept."
+    },
+    "season_number": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "description": "Numeric season associated with this weapon definition; null when not known."
+    },
+    "breaker": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "unstoppable",
+        "overload",
+        "barrier",
+        null
+      ],
+      "description": "One Champion breaker capability for this exact weapon definition: unstoppable, overload, or barrier. Use null when none is known or applicable."
+    },
+    "deepsight_harmonizable": {
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "description": "Whether this item definition can be harmonized for Deepsight; null when not established."
+    },
+    "version_type": {
+      "type": "string",
+      "enum": [
+        "base",
+        "alternate",
+        "upgraded",
+        "adept",
+        "holofoil"
+      ],
+      "description": "Optional classification of a specific seasonal item definition. This is a data-model label, not proof of verified historical availability."
+    }
+  },
+  "$defs": {},
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verification_status": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "verification_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "last_verified": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    }
+  ]
+}

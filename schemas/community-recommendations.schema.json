@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/rox4H/destiny-2-weapon-database/main/schemas/community-recommendations.schema.json",
+  "title": "Mode-specific aggregated community weapon recommendations",
+  "description": "Community-submitted recommendations published automatically after canonical weapon, complete perk-pool, selected-perk, and slot checks. The publication status does not imply maintainer review of the roll or sandbox-specific performance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "weapon_id",
+    "weapon_perk_pool_id",
+    "publication_status",
+    "validation_scope",
+    "published_by",
+    "recommendations"
+  ],
+  "properties": {
+    "weapon_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*_s[0-9]+(?:-[0-9]+)?$"
+    },
+    "weapon_perk_pool_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*_s[0-9]+(?:-[0-9]+)?$"
+    },
+    "recommendations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/community-recommendation"
+      }
+    },
+    "publication_status": {
+      "const": "mechanically_validated"
+    },
+    "validation_scope": {
+      "const": "canonical-dependencies-and-perk-slots"
+    },
+    "published_by": {
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?|github-actions\\[bot\\])$"
+    }
+  },
+  "$defs": {
+    "community-recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "name",
+        "magazine",
+        "perk_3",
+        "perk_4",
+        "description",
+        "github_username",
+        "issue_number",
+        "submitted_at",
+        "publication_status",
+        "validation_scope",
+        "published_by"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "pve",
+            "pvp"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "barrel": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "sight": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "magazine": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "perk_3": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "perk_4": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "github_username": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
+        },
+        "issue_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "submitted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "publication_status": {
+          "const": "mechanically_validated"
+        },
+        "validation_scope": {
+          "const": "canonical-dependencies-and-perk-slots"
+        },
+        "published_by": {
+          "type": "string",
+          "pattern": "^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?|github-actions\\[bot\\])$"
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "required": [
+                "barrel"
+              ],
+              "not": {
+                "required": [
+                  "sight"
+                ]
+              }
+            },
+            {
+              "required": [
+                "sight"
+              ],
+              "not": {
+                "required": [
+                  "barrel"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

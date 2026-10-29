@@ -1,0 +1,27 @@
+{
+  "weapon_id": "abyss-defiant_s22",
+  "mode": "pve",
+  "verification_status": "unverified",
+  "verified_for_sandbox": null,
+  "last_reviewed": "2026-10-27",
+  "rating": null,
+  "recommendations": [
+    {
+      "name": "Solar support and add clear",
+      "barrel": "arrowhead-brake",
+      "magazine": "armor-piercing-rounds",
+      "perk_3": "heal-clip",
+      "perk_4": "incandescent",
+      "description": "Solar support and add clear: Heal Clip supports post-kill healing, while Incandescent spreads Scorch after defeats. Candidate only; not verified as an optimal roll for the current sandbox."
+    },
+    {
+      "name": "Sustained add clear",
+      "barrel": "hammer-forged-rifling",
+      "magazine": "flared-magwell",
+      "perk_3": "reconstruction",
+      "perk_4": "incandescent",
+      "description": "Sustained add clear: Reconstruction gradually refills the magazine while Incandescent spreads Scorch after defeats. Candidate only; not verified as an optimal roll for the current sandbox."
+    }
+  ],
+  "weapon_perk_pool_id": "abyss-defiant_s22"
+}

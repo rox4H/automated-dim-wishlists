@@ -1,0 +1,284 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/rox4H/destiny-2-weapon-database/main/schemas/recommendation.schema.json",
+  "title": "Weapon roll recommendation record",
+  "description": "Recommendations are community-contributed roll suggestions. Verification confirms the factual dependencies recorded for each entry; a community record does not claim optimality or testing in a specific sandbox.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "weapon_id",
+    "weapon_perk_pool_id",
+    "mode",
+    "verification_status",
+    "verified_for_sandbox",
+    "last_reviewed",
+    "rating",
+    "recommendations"
+  ],
+  "properties": {
+    "weapon_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*_s[0-9]+(?:-[0-9]+)?$",
+      "description": "ID of the exact seasonal weapon version, using the underscore season suffix such as avalanche_s19."
+    },
+    "mode": {
+      "enum": [
+        "pve",
+        "pvp"
+      ]
+    },
+    "verification_status": {
+      "enum": [
+        "unverified",
+        "verified"
+      ]
+    },
+    "verified_for_sandbox": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "last_reviewed": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "rating": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 10
+    },
+    "recommendations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/recommendation"
+      },
+      "description": "Each recommendation object contains a human-readable name, one barrel-or-sight component, a magazine, two trait perks, and a description."
+    },
+    "weapon_perk_pool_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*_s[0-9]+(?:-[0-9]+)?$",
+      "description": "Required underscore-suffixed ID of the exact Supabase public.d2wd_weapon_perk_pools row record used to validate every selected perk."
+    },
+    "github_username": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$",
+      "description": "Original GitHub issue creator's login. Required for automated records under recommendations/community/; never taken from the issue body."
+    },
+    "verified_by": {
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?|github-actions\\[bot\\])$",
+      "description": "GitHub login credited for verification. Automated community publication uses github-actions[bot] only after the exact weapon, complete version-specific pool, and four selected perk definitions pass the canonical verification gate."
+    },
+    "verification_sources": {
+      "type": "array",
+      "description": "External evidence claims. Curated verified recommendations require at least two sources; verified community records may use an empty array because their publication gate is the repository's canonical dependency verification.",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    }
+  },
+  "$defs": {
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "magazine",
+        "perk_3",
+        "perk_4",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*",
+          "description": "Short human-readable label for this specific recommended roll or playstyle; not a weapon or perk ID."
+        },
+        "barrel": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Canonical perk ID from Supabase public.d2wd_perks row; used when the selected weapon-version pool has a barrel slot."
+        },
+        "magazine": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Canonical perk ID from Supabase public.d2wd_perks row; validation requires membership in the matching magazine slot of the selected weapon-version pool."
+        },
+        "perk_3": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Canonical perk ID from Supabase public.d2wd_perks row; validation requires membership in trait slot 1 of the selected weapon-version pool."
+        },
+        "perk_4": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Canonical perk ID from Supabase public.d2wd_perks row; validation requires membership in trait slot 2 of the selected weapon-version pool."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Brief human-readable explanation of the roll and intended playstyle; not a claim of verification or optimality."
+        },
+        "sight": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "description": "Canonical perk ID from Supabase public.d2wd_perks row; used when the selected weapon-version pool has a scope/sight slot instead of a barrel slot."
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "required": [
+                "barrel"
+              ],
+              "not": {
+                "required": [
+                  "sight"
+                ]
+              }
+            },
+            {
+              "required": [
+                "sight"
+              ],
+              "not": {
+                "required": [
+                  "barrel"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "claim",
+        "accessed"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://\\S+$",
+          "minLength": 1
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": ".*\\S.*"
+        },
+        "accessed": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verification_status": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "verification_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "last_reviewed": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "last_reviewed"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "github_username"
+              ]
+            },
+            "then": {
+              "properties": {
+                "verified_for_sandbox": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "verified_by": {
+                  "type": "string",
+                  "pattern": "^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?|github-actions\\[bot\\])$"
+                },
+                "verification_sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/source"
+                  }
+                }
+              },
+              "required": [
+                "verified_for_sandbox",
+                "verified_by",
+                "verification_sources"
+              ]
+            }
+          },
+          {
+            "if": {
+              "not": {
+                "required": [
+                  "github_username"
+                ]
+              }
+            },
+            "then": {
+              "properties": {
+                "verified_for_sandbox": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "verified_by": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
+                },
+                "verification_sources": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "$ref": "#/$defs/source"
+                  }
+                }
+              },
+              "required": [
+                "verified_for_sandbox",
+                "verified_by",
+                "verification_sources"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
