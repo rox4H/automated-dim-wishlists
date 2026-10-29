@@ -108,6 +108,20 @@ class CommunityPublicationWorkflowTests(unittest.TestCase):
         self.assertNotIn("PUBLISHER_APP_TOKEN", merge_step)
         self.assertNotIn("publisherAppGithub", PUBLISH)
 
+    def test_merged_publication_branch_is_deleted_only_after_identity_checks(self):
+        cleanup_step = PUBLISH.split(
+            "- name: Delete the merged publication branch safely", 1
+        )[1].split("\n      - name:", 1)[0]
+
+        self.assertIn("steps.merge.outputs.commit_sha != ''", cleanup_step)
+        self.assertIn("github-token: ${{ steps.publisher-token.outputs.token }}", cleanup_step)
+        self.assertIn("pull.merged", cleanup_step)
+        self.assertIn("pull.head.sha !== expectedHead", cleanup_step)
+        self.assertIn("branch.commit.sha !== expectedHead", cleanup_step)
+        self.assertIn("github.rest.git.deleteRef", cleanup_step)
+        self.assertIn("already deleted", cleanup_step)
+        self.assertIn("leaving it untouched", cleanup_step)
+
     def test_publisher_token_is_scoped_to_the_current_repository(self):
         self.assertIn("repositories: ${{ github.event.repository.name }}", PUBLISH)
         self.assertNotIn("repositories: destiny-2-weapon-database", PUBLISH)
