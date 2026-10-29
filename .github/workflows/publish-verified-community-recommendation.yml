@@ -534,6 +534,58 @@ jobs:
               await github.rest.issues.update({ owner, repo, issue_number: issueNumber, state: 'closed', state_reason: 'completed' });
             }
 
+      - name: Delete the merged publication branch safely
+        if: ${{ success() && steps.merge.outputs.commit_sha != '' && steps.branch.outputs.branch_name != '' && steps.publication-pr.outputs.pull_number != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
+          PULL_NUMBER: ${{ steps.publication-pr.outputs.pull_number }}
+          EXPECTED_HEAD_SHA: ${{ steps.prepare.outputs.commit_sha }}
+        with:
+          github-token: ${{ steps.publisher-token.outputs.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const branchName = process.env.BRANCH_NAME;
+            const pullNumber = Number(process.env.PULL_NUMBER);
+            const expectedHead = process.env.EXPECTED_HEAD_SHA;
+            if (!branchName.startsWith('automation/recommendation-proposal-') ||
+                !Number.isInteger(pullNumber) || pullNumber < 1 || !expectedHead) {
+              throw new Error('Refusing to clean up an unexpected branch or invalid publication PR.');
+            }
+
+            const pull = (await github.rest.pulls.get({
+              owner, repo, pull_number: pullNumber,
+            })).data;
+            if (!pull.merged || pull.state !== 'closed' ||
+                pull.head.ref !== branchName || pull.head.sha !== expectedHead ||
+                pull.base.ref !== 'main') {
+              core.warning('Publication PR is not the expected merged PR; leaving the branch untouched.');
+              return;
+            }
+
+            let branch;
+            try {
+              branch = (await github.rest.repos.getBranch({
+                owner, repo, branch: branchName,
+              })).data;
+            } catch (error) {
+              if (error.status === 404) {
+                core.info('Publication branch was already deleted, including by GitHub auto-delete.');
+                return;
+              }
+              throw error;
+            }
+
+            if (branch.commit.sha !== expectedHead) {
+              core.warning('Publication branch has moved since the validated commit; leaving it untouched.');
+              return;
+            }
+
+            await github.rest.git.deleteRef({
+              owner, repo, ref: 'heads/' + branchName,
+            });
+            core.info('Deleted merged publication branch ' + branchName + '.');
+
       - name: Clean up an unmerged publication PR after a failed gate
         if: ${{ failure() && steps.publisher-token.outputs.token != '' && steps.branch.outputs.branch_name != '' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
