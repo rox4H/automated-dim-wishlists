@@ -1,6 +1,7 @@
 title:Weapon Wishlist — Community
 description:Player-submitted PvE and PvP weapon rolls.
 
+dimwishlist:item=833898322&perks=839103960,2728077304,2975200334,4293542123#notes:PVE | BY @rox4H | PVE 1
 dimwishlist:item=66875353&perks=360593483,2728077304,1820235532,1546637317#notes:PVE | BY @rox4H | Boss DPS
 dimwishlist:item=66875353&perks=3151536501,2728077304,1820235532,1546637317#notes:PVE | BY @rox4H | PVE BOSS DAMAGE VARIANT 1
 dimwishlist:item=66875353&perks=965619223,2728077304,1820235532,1546637317#notes:PVE | BY @rox4H | PVE BOSS DAMAGE VARIANT 1
