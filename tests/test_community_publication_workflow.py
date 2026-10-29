@@ -111,7 +111,7 @@ class CommunityPublicationWorkflowTests(unittest.TestCase):
     def test_merged_publication_branch_is_deleted_only_after_identity_checks(self):
         cleanup_step = PUBLISH.split(
             "- name: Delete the merged publication branch safely", 1
-        )[1].split("\\n      - name:", 1)[0]
+        )[1].split("\n      - name:", 1)[0]
 
         self.assertIn("steps.merge.outputs.commit_sha != ''", cleanup_step)
         self.assertIn("github-token: ${{ steps.publisher-token.outputs.token }}", cleanup_step)
