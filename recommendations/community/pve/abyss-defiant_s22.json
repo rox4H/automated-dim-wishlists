@@ -1,0 +1,24 @@
+{
+  "weapon_id": "abyss-defiant_s22",
+  "weapon_perk_pool_id": "abyss-defiant_s22",
+  "publication_status": "mechanically_validated",
+  "validation_scope": "canonical-dependencies-and-perk-slots",
+  "recommendations": [
+    {
+      "mode": "pve",
+      "name": "Inital test commit GR",
+      "barrel": "arrowhead-brake",
+      "magazine": "ricochet-rounds",
+      "perk_3": "heal-clip",
+      "perk_4": "incandescent",
+      "description": "```text\nInital test commit GR\n```",
+      "github_username": "rox4H",
+      "issue_number": 10,
+      "submitted_at": "2026-10-29T17:53:55Z",
+      "publication_status": "mechanically_validated",
+      "validation_scope": "canonical-dependencies-and-perk-slots",
+      "published_by": "github-actions[bot]"
+    }
+  ],
+  "published_by": "github-actions[bot]"
+}
