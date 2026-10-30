@@ -46,8 +46,8 @@ The bot comments on your issue with the result and adds a label:
 
 | Result | Label | What it means |
 | --- | --- | --- |
-| Ready to publish | `intake:ready-to-publish` | The weapon version, its complete perk pool, and your four perks are verified in the catalogue. The bot opens a publication pull request, waits for CI, merges it, then closes your issue as completed and adds `intake:published`. |
-| Needs maintainer review | `needs-maintainer-review` | The mechanical checks passed, but the weapon, its perk pool, or a perk isn't verified in the catalogue yet. The issue stays open and nothing is published until the maintainer verifies the missing data. |
+| Ready to publish | `intake:ready-to-publish` | The weapon version, its complete perk pool, and your four perks are all verified. The bot opens a publication pull request, waits for CI, merges it, then closes your issue as completed and adds `intake:published`. |
+| Needs maintainer review | `needs-maintainer-review` | The mechanical checks passed, but the weapon, its perk pool, or a perk isn't verified yet. The issue stays open and nothing is published until the maintainer verifies the missing data. |
 | Action required | `intake:action-required` | Something blocking was found, such as an unknown weapon ID, a perk that can't roll in that slot, a duplicate, or placeholder text. The comment lists the reasons and the bot closes the issue. Fix the problem in a **new** issue. |
 | Invalidated | `intake:submission-invalidated` | The issue was edited or reopened after creation. It will not be published. Open a new issue. |
 | Integration blocked | `intake:integration-blocked` | The validator or publisher hit an unexpected problem. The issue stays open for the maintainer to look at. |
@@ -62,46 +62,15 @@ Open a [correction issue](https://github.com/rox4H/automated-dim-wishlists/issue
 
 For anything larger than a small fix, open an issue first so we can agree on the approach.
 
-### Set up
-
-You need Python 3.11, 3.12, or 3.13, and Node.js 22.
-
-```bash
-git clone https://github.com/rox4H/automated-dim-wishlists
-cd automated-dim-wishlists
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-python -m pip install -r requirements-dev.txt
-```
-
-### Run the checks
-
-CI runs these on every pull request, and you can run them locally. Some of them read the weapon, perk, and perk-pool catalogue, so they need internet access.
-
-| Command | Needs internet | What it checks |
-| --- | --- | --- |
-| `python scripts/check_workflow_security.py` | No | Workflow security rules: pinned actions, token permissions, publisher isolation. |
-| `python -m unittest discover -s tests -v` | Mostly | Python tests. `test_current_repository_is_valid` validates the repository against the live catalogue. |
-| `python scripts/validate_json.py` | Yes | Schemas and cross-references of every recommendation against the catalogue. |
-| `python scripts/export_dim_wishlist.py --source curated --check` | Yes | The curated export is up to date. |
-| `python scripts/export_dim_wishlist.py --source community --check` | Yes | The community export is up to date. |
-| `node --test tests/test_generate_weapon_perk_pools.mjs tests/test_recommendation_intake_outcome.cjs tests/test_recommendation_snapshot.cjs tests/test_enrich_perk_descriptions.mjs` | No | Node.js tests. |
-
-To regenerate an export after changing a recommendation, run the same export command without `--check`.
-
-### The catalogue
-
-The catalogue isn't stored in this repository. By default the tools read it from a public, read-only Supabase project, so you don't need an account or any credentials. To point at a different project, set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`.
-
-Writing to the catalogue (`scripts/generate_weapon_perk_pools.mjs` and `scripts/enrich_perk_descriptions.mjs`) is maintainer-only and needs a `SUPABASE_SECRET_KEY` in the local shell. Never commit a Supabase secret or service-role key, and never put one in a GitHub Actions workflow. `check_workflow_security.py` fails if one appears.
+You don't need to download the repository or run anything locally. CI runs all the checks automatically on every pull request.
 
 ### Pull requests
 
 - Branch from `main`, keep the change focused, and fill in the pull request template.
 - CI must pass on Python 3.11, 3.12, 3.13, and Node.js. `@rox4H` reviews every change.
-- Don't edit `exports/` by hand. CI fails when an export differs from what the script generates.
+- Don't edit `exports/` by hand. They are generated from the recommendations, and CI fails when an export is out of date.
 - Community records under `recommendations/community/` are published by the automation from validated issues, so each one carries its author and source issue. Suggest community rolls through the issue form instead of a pull request.
-- Workflow changes must pin every action to a full commit SHA, must not use `pull_request_target`, and must not expose publisher credentials. `check_workflow_security.py` enforces this.
+- Workflow changes must pin every action to a full commit SHA, must not use `pull_request_target`, and must not expose publisher credentials. CI checks this automatically.
 - JSON records must not contain duplicate keys. The validator rejects them.
 
 ## Licensing of contributions

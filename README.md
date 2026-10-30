@@ -27,7 +27,7 @@ Both URLs always serve the current `main` branch. The files are generated from t
 ## What the lists do and don't promise
 
 - **Curated.** Each record is tagged `verified` or `unverified`. An unverified entry is a candidate, not a tested pick.
-- **Community.** Entries are *mechanically validated*: the weapon version exists in the catalogue, each of the four perks can roll in its slot on that exact version, and the same roll isn't already listed. Nobody has judged whether the roll is *good*.
+- **Community.** Entries are *mechanically validated*: the weapon version exists, each of the four perks can roll in its slot on that exact version, and the same roll isn't already listed. Nobody has judged whether the roll is *good*.
 
 Wishlist entries are player opinions, not guarantees of performance. Verify weapon details in game before relying on a recommendation.
 
@@ -58,11 +58,9 @@ Use the [correction issue](https://github.com/rox4H/automated-dim-wishlists/issu
 | `exports/` | The two DIM wishlist files. Generated; don't edit by hand. |
 | `recommendations/curated/`, `recommendations/community/` | Source records, one JSON file per weapon version and mode. |
 | `schemas/` | JSON Schemas for the records. |
-| `scripts/` | Validation, export, and catalogue tooling. |
+| `scripts/` | Validation and export tooling. |
 | `tests/` | Python and Node.js tests. |
 | `.github/` | Issue forms, CI, and the intake and publication workflows. |
-
-The weapon, perk, and perk-pool catalogue that recommendations are checked against isn't stored in this repository. The tooling reads it from a public, read-only database.
 
 ## Contributing and security
 
