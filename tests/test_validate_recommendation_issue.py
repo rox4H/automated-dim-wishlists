@@ -183,6 +183,35 @@ class IssueValidationTests(unittest.TestCase):
         report = validate_issue(BODY.replace("incandescente", "Shared Name"), self.root)
         self.assertTrue(any("multiple catalogue records" in error for error in report["errors"]), report)
 
+    def test_battery_slot_maps_to_canonical_magazine_field(self):
+        (self.root / "data" / "perks" / "enhanced-battery.json").write_text(
+            json.dumps({
+                "id": "enhanced-battery",
+                "name": "Enhanced Battery",
+                "verification_status": "unverified",
+            }),
+            encoding="utf-8",
+        )
+        pool_path = self.root / "data" / "weapon-perk-pools" / "sample-weapon_s2.json"
+        pool = json.loads(pool_path.read_text(encoding="utf-8"))
+        pool["slots"][1] = {
+            "id": "battery-enhanced-battery",
+            "label": "Battery / Enhanced Battery",
+            "selection_mode": "choose-one",
+            "perk_ids": ["enhanced-battery"],
+            "notes": [],
+        }
+        pool_path.write_text(json.dumps(pool), encoding="utf-8")
+
+        report = validate_issue(
+            BODY.replace("Sample Magazine", "Enhanced Battery"),
+            self.root,
+            "[Recommendation proposal] Solar add clear",
+            84,
+        )
+        self.assertEqual(report["errors"], [], report)
+        self.assertEqual(report["canonical_recommendation"]["magazine"], "enhanced-battery")
+
     def test_valid_issue_maps_generic_perks_to_exact_json_slots(self):
         report = validate_issue(BODY, self.root, "[Recommendation proposal] Solar add clear", 84)
         self.assertEqual(report["errors"], [], report)
