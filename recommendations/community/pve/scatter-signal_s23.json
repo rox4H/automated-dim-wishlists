@@ -1,0 +1,24 @@
+{
+  "weapon_id": "scatter-signal_s23",
+  "weapon_perk_pool_id": "scatter-signal_s23",
+  "publication_status": "mechanically_validated",
+  "validation_scope": "canonical-dependencies-and-perk-slots",
+  "recommendations": [
+    {
+      "mode": "pve",
+      "name": "strand add-clear",
+      "barrel": "arrowhead-brake",
+      "magazine": "enhanced-battery",
+      "perk_3": "overflow",
+      "perk_4": "controlled-burst",
+      "description": "```text\nstrand add clear originally from @gesa_09\n```",
+      "github_username": "rox4H",
+      "issue_number": 19,
+      "submitted_at": "2026-10-30T19:05:07Z",
+      "publication_status": "mechanically_validated",
+      "validation_scope": "canonical-dependencies-and-perk-slots",
+      "published_by": "github-actions[bot]"
+    }
+  ],
+  "published_by": "github-actions[bot]"
+}

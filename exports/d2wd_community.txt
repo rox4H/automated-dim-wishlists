@@ -2,3 +2,4 @@ title:Weapon Wishlist — Community
 description:Player-submitted PvE and PvP weapon rolls.
 
 dimwishlist:item=833898322&perks=839103960,2728077304,706527132,4293542123#notes:PVE | BY @rox4H | Inital test commit GR
+dimwishlist:item=2558925366&perks=839103960,2323714493,3661280383,1851219615#notes:PVE | BY @rox4H | strand add-clear
