@@ -12,6 +12,7 @@ from pathlib import Path
 
 from recommendation_uniqueness import find_duplicate_recommendations, RecommendationScanError
 from catalogue_source import CatalogueError, open_catalogue
+from pool_slot_mapping import matching_pool_slots as _matching_pool_slots
 
 ROOT = Path(__file__).resolve().parents[1]
 HEADINGS = {
@@ -234,35 +235,6 @@ def resolve_perk(value, perks):
         "Perk " + text + " is not a canonical perk ID or recognised display name in data/perks/. Check the spelling or provide its ID."
     ]
 
-
-def _matching_pool_slots(pool_record, column):
-    """Return exact pool slots matching a recommendation JSON column."""
-    slots = pool_record.get("slots")
-    if not isinstance(slots, list):
-        return []
-    matches = []
-    for slot in slots:
-        if not isinstance(slot, dict):
-            continue
-        slot_id = slot.get("id")
-        label = slot.get("label")
-        slot_id = slot_id.lower() if isinstance(slot_id, str) else ""
-        label = label.lower().strip() if isinstance(label, str) else ""
-        if column == "barrel" and ("barrel" in slot_id or "barrel" in label):
-            matches.append(slot)
-        elif column == "sight" and any(
-            token in value
-            for value in (slot_id, label)
-            for token in ("scope", "sight", "optic")
-        ):
-            matches.append(slot)
-        elif column == "magazine" and ("magazine" in slot_id or "magazine" in label):
-            matches.append(slot)
-        elif column == "perk_3" and (slot_id.endswith("trait-1") or ("trait" in label and label.endswith(" 1"))):
-            matches.append(slot)
-        elif column == "perk_4" and (slot_id.endswith("trait-2") or ("trait" in label and label.endswith(" 2"))):
-            matches.append(slot)
-    return matches
 
 
 def validate_issue(body, root=ROOT, title="[Recommendation proposal]", issue_number=None):

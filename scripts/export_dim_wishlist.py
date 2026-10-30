@@ -12,6 +12,7 @@ from typing import Any
 
 from recommendation_uniqueness import find_duplicate_pairs, RecommendationScanError
 from catalogue_source import CatalogueError, open_catalogue
+from pool_slot_mapping import matching_pool_slots as _matching_pool_slots
 
 ROOT = Path(__file__).resolve().parents[1]
 ROLL_FIELDS = ("magazine", "perk_3", "perk_4")
@@ -84,35 +85,6 @@ def _resolve_perk_hash(
 
     return value
 
-
-def _matching_pool_slots(pool: dict[str, Any], column: str) -> list[dict[str, Any]]:
-    """Resolve the pool slots corresponding to one recommendation column."""
-    slots = pool.get("slots")
-    if not isinstance(slots, list):
-        return []
-    matches = []
-    for slot in slots:
-        if not isinstance(slot, dict):
-            continue
-        slot_id = slot.get("id")
-        label = slot.get("label")
-        slot_id = slot_id.lower() if isinstance(slot_id, str) else ""
-        label = label.lower().strip() if isinstance(label, str) else ""
-        if column == "barrel" and ("barrel" in slot_id or "barrel" in label):
-            matches.append(slot)
-        elif column == "sight" and any(
-            token in value
-            for value in (slot_id, label)
-            for token in ("scope", "sight", "optic")
-        ):
-            matches.append(slot)
-        elif column == "magazine" and ("magazine" in slot_id or "magazine" in label):
-            matches.append(slot)
-        elif column == "perk_3" and (slot_id.endswith("trait-1") or ("trait" in label and label.endswith(" 1"))):
-            matches.append(slot)
-        elif column == "perk_4" and (slot_id.endswith("trait-2") or ("trait" in label and label.endswith(" 2"))):
-            matches.append(slot)
-    return matches
 
 
 def _validate_mechanically_validated_community_record(

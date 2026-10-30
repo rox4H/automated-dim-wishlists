@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from catalogue_source import CatalogueError, open_catalogue
+from pool_slot_mapping import matching_pool_slots as _matching_pool_slots
 from recommendation_uniqueness import recommendation_signature
 
 try:
@@ -74,41 +75,6 @@ def _read_json(path: Path, root: Path, errors: list[str]) -> Any | None:
         errors.append(f"{path.relative_to(root)}: invalid JSON: {exc}")
         return None
 
-
-def _matching_pool_slots(pool_record: dict[str, Any], column: str) -> list[dict[str, Any]]:
-    """Return the exact weapon-pool slots that correspond to a recommendation column."""
-    slots = pool_record.get("slots")
-    if not isinstance(slots, list):
-        return []
-
-    matches: list[dict[str, Any]] = []
-    for slot in slots:
-        if not isinstance(slot, dict):
-            continue
-        slot_id = slot.get("id")
-        label = slot.get("label")
-        slot_id = slot_id.lower() if isinstance(slot_id, str) else ""
-        label = label.lower().strip() if isinstance(label, str) else ""
-
-        if column == "barrel" and ("barrel" in slot_id or "barrel" in label):
-            matches.append(slot)
-        elif column == "sight" and any(
-            token in value
-            for value in (slot_id, label)
-            for token in ("scope", "sight", "optic")
-        ):
-            matches.append(slot)
-        elif column == "magazine" and ("magazine" in slot_id or "magazine" in label):
-            matches.append(slot)
-        elif column == "perk_3" and (
-            slot_id.endswith("trait-1") or ("trait" in label and label.endswith(" 1"))
-        ):
-            matches.append(slot)
-        elif column == "perk_4" and (
-            slot_id.endswith("trait-2") or ("trait" in label and label.endswith(" 2"))
-        ):
-            matches.append(slot)
-    return matches
 
 
 def validate_repository(root: Path = ROOT) -> list[str]:
