@@ -1,0 +1,222 @@
+{
+ "format": 1,
+ "exported_at": "2026-10-31",
+ "weapons": {
+  "ghost-rifle_s1": {
+   "id": "ghost-rifle_s1",
+   "name": "Ghost Rifle",
+   "bungie_hash": 9999999,
+   "weapon_type": "Pulse Rifle",
+   "damage_type": "Kinetic",
+   "ammo_type": "Primary",
+   "frame": "Precision Frame",
+   "rarity": "Legendary",
+   "source_activity": null,
+   "season": "Season 1",
+   "craftable": false,
+   "origin_trait": null,
+   "verification_status": "unverified",
+   "last_verified": null,
+   "notes": [],
+   "season_number": 1,
+   "breaker": null,
+   "deepsight_harmonizable": null
+  },
+  "test-rifle_s1": {
+   "id": "test-rifle_s1",
+   "name": "Test Rifle",
+   "bungie_hash": 1001,
+   "weapon_type": "Pulse Rifle",
+   "damage_type": "Kinetic",
+   "ammo_type": "Primary",
+   "frame": "Precision Frame",
+   "rarity": "Legendary",
+   "source_activity": null,
+   "season": "Season 1",
+   "craftable": false,
+   "origin_trait": null,
+   "verification_status": "unverified",
+   "last_verified": null,
+   "notes": [],
+   "season_number": 1,
+   "breaker": null,
+   "deepsight_harmonizable": null
+  },
+  "verified-rifle_s1": {
+   "id": "verified-rifle_s1",
+   "name": "Verified Rifle",
+   "bungie_hash": 1002,
+   "weapon_type": "Pulse Rifle",
+   "damage_type": "Kinetic",
+   "ammo_type": "Primary",
+   "frame": "Precision Frame",
+   "rarity": "Legendary",
+   "source_activity": null,
+   "season": "Season 1",
+   "craftable": false,
+   "origin_trait": null,
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "notes": [],
+   "season_number": 1,
+   "breaker": null,
+   "deepsight_harmonizable": null
+  }
+ },
+ "perks": {
+  "precision-frame": {
+   "id": "precision-frame",
+   "name": "Precision Frame",
+   "bungie_hash": 5001,
+   "perk_type": "intrinsic",
+   "description": "Curated Precision Frame.",
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "notes": []
+  },
+  "arrowhead-brake": {
+   "id": "arrowhead-brake",
+   "name": "Arrowhead Brake",
+   "bungie_hash": 5101,
+   "perk_type": "barrel",
+   "description": "Curated Arrowhead Brake.",
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "notes": []
+  },
+  "smallbore": {
+   "id": "smallbore",
+   "name": "Smallbore",
+   "bungie_hash": 5102,
+   "perk_type": "barrel",
+   "description": "Curated Smallbore.",
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "notes": []
+  },
+  "tactical-mag": {
+   "id": "tactical-mag",
+   "name": "Tactical Mag",
+   "bungie_hash": 5201,
+   "perk_type": "magazine",
+   "description": "Curated Tactical Mag.",
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "notes": []
+  },
+  "extended-mag": {
+   "id": "extended-mag",
+   "name": "Extended Mag",
+   "bungie_hash": 5202,
+   "perk_type": "magazine",
+   "description": "Curated Extended Mag.",
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "notes": []
+  },
+  "rampage": {
+   "id": "rampage",
+   "name": "Rampage",
+   "bungie_hash": 5301,
+   "perk_type": "trait",
+   "description": "Curated Rampage.",
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "notes": []
+  },
+  "kill-clip": {
+   "id": "kill-clip",
+   "name": "Kill Clip",
+   "bungie_hash": 5302,
+   "perk_type": "trait",
+   "description": "Curated Kill Clip.",
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "notes": []
+  },
+  "outlaw": {
+   "id": "outlaw",
+   "name": "Outlaw",
+   "bungie_hash": 5401,
+   "perk_type": "trait",
+   "description": "Curated Outlaw.",
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "notes": []
+  },
+  "frenzy": {
+   "id": "frenzy",
+   "name": "Frenzy",
+   "bungie_hash": 5402,
+   "perk_type": "trait",
+   "description": "Curated Frenzy.",
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "notes": []
+  }
+ },
+ "verified_pools": {
+  "verified-rifle_s1": {
+   "weapon_id": "verified-rifle_s1",
+   "weapon_hash": 1002,
+   "version_label": "Season 1",
+   "pool_status": "complete",
+   "verification_status": "verified",
+   "last_verified": "2026-01-01",
+   "slots": [
+    {
+     "id": "intrinsic",
+     "label": "Intrinsic",
+     "selection_mode": "fixed",
+     "perk_ids": [
+      "precision-frame"
+     ],
+     "notes": []
+    },
+    {
+     "id": "barrel",
+     "label": "Barrel",
+     "selection_mode": "choose-one",
+     "perk_ids": [
+      "arrowhead-brake",
+      "smallbore"
+     ],
+     "notes": []
+    },
+    {
+     "id": "magazine",
+     "label": "Magazine",
+     "selection_mode": "choose-one",
+     "perk_ids": [
+      "tactical-mag",
+      "extended-mag"
+     ],
+     "notes": []
+    },
+    {
+     "id": "trait-1",
+     "label": "Trait 1",
+     "selection_mode": "choose-one",
+     "perk_ids": [
+      "rampage",
+      "kill-clip"
+     ],
+     "notes": []
+    },
+    {
+     "id": "trait-2",
+     "label": "Trait 2",
+     "selection_mode": "choose-one",
+     "perk_ids": [
+      "outlaw",
+      "frenzy"
+     ],
+     "notes": []
+    }
+   ],
+   "notes": [
+    "Human reviewed."
+   ]
+  }
+ }
+}

@@ -1,0 +1,271 @@
+{
+ "5001": {
+  "hash": 5001,
+  "displayProperties": {
+   "name": "Precision Frame",
+   "description": "A steady frame."
+  },
+  "itemTypeDisplayName": "Intrinsic",
+  "plug": {
+   "plugCategoryIdentifier": "intrinsics"
+  }
+ },
+ "5101": {
+  "hash": 5101,
+  "displayProperties": {
+   "name": "Arrowhead Brake",
+   "description": ""
+  },
+  "itemTypeDisplayName": "Barrel",
+  "plug": {
+   "plugCategoryIdentifier": "barrels"
+  }
+ },
+ "5102": {
+  "hash": 5102,
+  "displayProperties": {
+   "name": "Smallbore",
+   "description": ""
+  },
+  "itemTypeDisplayName": "Barrel",
+  "plug": {
+   "plugCategoryIdentifier": "barrels"
+  }
+ },
+ "5201": {
+  "hash": 5201,
+  "displayProperties": {
+   "name": "Tactical Mag",
+   "description": ""
+  },
+  "itemTypeDisplayName": "Magazine",
+  "plug": {
+   "plugCategoryIdentifier": "magazines"
+  }
+ },
+ "5202": {
+  "hash": 5202,
+  "displayProperties": {
+   "name": "Extended Mag",
+   "description": ""
+  },
+  "itemTypeDisplayName": "Magazine",
+  "plug": {
+   "plugCategoryIdentifier": "magazines"
+  }
+ },
+ "5301": {
+  "hash": 5301,
+  "displayProperties": {
+   "name": "Rampage",
+   "description": "Kills grant damage."
+  },
+  "itemTypeDisplayName": "Trait",
+  "plug": {
+   "plugCategoryIdentifier": "frames"
+  }
+ },
+ "5302": {
+  "hash": 5302,
+  "displayProperties": {
+   "name": "Kill Clip",
+   "description": ""
+  },
+  "itemTypeDisplayName": "Trait",
+  "plug": {
+   "plugCategoryIdentifier": "frames"
+  }
+ },
+ "5303": {
+  "hash": 5303,
+  "displayProperties": {
+   "name": "Surplus",
+   "description": ""
+  },
+  "itemTypeDisplayName": "Trait",
+  "plug": {
+   "plugCategoryIdentifier": "frames"
+  }
+ },
+ "5401": {
+  "hash": 5401,
+  "displayProperties": {
+   "name": "Outlaw",
+   "description": ""
+  },
+  "itemTypeDisplayName": "Trait",
+  "plug": {
+   "plugCategoryIdentifier": "frames"
+  }
+ },
+ "5402": {
+  "hash": 5402,
+  "displayProperties": {
+   "name": "Frenzy",
+   "description": ""
+  },
+  "itemTypeDisplayName": "Trait",
+  "plug": {
+   "plugCategoryIdentifier": "frames"
+  }
+ },
+ "5403": {
+  "hash": 5403,
+  "displayProperties": {
+   "name": "Subsistence",
+   "description": ""
+  },
+  "itemTypeDisplayName": "Trait",
+  "plug": {
+   "plugCategoryIdentifier": "frames"
+  }
+ },
+ "5501": {
+  "hash": 5501,
+  "displayProperties": {
+   "name": "Tier 1 Range",
+   "description": ""
+  },
+  "itemTypeDisplayName": "Masterwork",
+  "plug": {
+   "plugCategoryIdentifier": "v400.plugs.weapons.masterworks.stat.range"
+  }
+ },
+ "1001": {
+  "hash": 1001,
+  "displayProperties": {
+   "name": "Test Rifle"
+  },
+  "itemTypeDisplayName": "Pulse Rifle",
+  "inventory": {
+   "tierTypeName": "Legendary"
+  },
+  "sockets": {
+   "socketEntries": [
+    {
+     "socketTypeHash": 201,
+     "singleInitialItemHash": 5001
+    },
+    {
+     "socketTypeHash": 202,
+     "singleInitialItemHash": 5101,
+     "reusablePlugSetHash": 9001
+    },
+    {
+     "socketTypeHash": 203,
+     "singleInitialItemHash": 5201,
+     "randomizedPlugSetHash": 9002
+    },
+    {
+     "socketTypeHash": 204,
+     "singleInitialItemHash": 5301,
+     "randomizedPlugSetHash": 9003
+    },
+    {
+     "socketTypeHash": 205,
+     "singleInitialItemHash": 5401,
+     "randomizedPlugSetHash": 9004
+    },
+    {
+     "socketTypeHash": 206,
+     "singleInitialItemHash": 5501
+    }
+   ],
+   "socketCategories": [
+    {
+     "socketCategoryHash": 1,
+     "socketIndexes": [
+      0
+     ]
+    },
+    {
+     "socketCategoryHash": 2,
+     "socketIndexes": [
+      1,
+      2,
+      3,
+      4
+     ]
+    },
+    {
+     "socketCategoryHash": 3,
+     "socketIndexes": [
+      5
+     ]
+    }
+   ]
+  }
+ },
+ "1002": {
+  "hash": 1002,
+  "displayProperties": {
+   "name": "Verified Rifle"
+  },
+  "itemTypeDisplayName": "Pulse Rifle",
+  "inventory": {
+   "tierTypeName": "Legendary"
+  },
+  "sockets": {
+   "socketEntries": [
+    {
+     "socketTypeHash": 201,
+     "singleInitialItemHash": 5001
+    },
+    {
+     "socketTypeHash": 202,
+     "singleInitialItemHash": 5101,
+     "reusablePlugSetHash": 9001
+    },
+    {
+     "socketTypeHash": 203,
+     "singleInitialItemHash": 5201,
+     "randomizedPlugSetHash": 9002
+    },
+    {
+     "socketTypeHash": 204,
+     "singleInitialItemHash": 5301,
+     "randomizedPlugSetHash": 9003
+    },
+    {
+     "socketTypeHash": 205,
+     "singleInitialItemHash": 5401,
+     "randomizedPlugSetHash": 9006
+    },
+    {
+     "socketTypeHash": 206,
+     "singleInitialItemHash": 5501
+    }
+   ],
+   "socketCategories": [
+    {
+     "socketCategoryHash": 1,
+     "socketIndexes": [
+      0
+     ]
+    },
+    {
+     "socketCategoryHash": 2,
+     "socketIndexes": [
+      1,
+      2,
+      3,
+      4
+     ]
+    },
+    {
+     "socketCategoryHash": 3,
+     "socketIndexes": [
+      5
+     ]
+    }
+   ]
+  }
+ },
+ "7777": {
+  "hash": 7777,
+  "displayProperties": {
+   "name": "Unrelated Item"
+  },
+  "itemTypeDisplayName": "Emote"
+ }
+}

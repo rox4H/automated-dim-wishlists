@@ -1,0 +1,62 @@
+{
+ "9001": {
+  "reusablePlugItems": [
+   {
+    "plugItemHash": 5101
+   },
+   {
+    "plugItemHash": 5102
+   }
+  ]
+ },
+ "9002": {
+  "reusablePlugItems": [
+   {
+    "plugItemHash": 5201
+   },
+   {
+    "plugItemHash": 5202
+   }
+  ]
+ },
+ "9003": {
+  "reusablePlugItems": [
+   {
+    "plugItemHash": 5301
+   },
+   {
+    "plugItemHash": 5302
+   },
+   {
+    "plugItemHash": 5303
+   }
+  ]
+ },
+ "9004": {
+  "reusablePlugItems": [
+   {
+    "plugItemHash": 5401
+   },
+   {
+    "plugItemHash": 5402
+   }
+  ]
+ },
+ "9006": {
+  "reusablePlugItems": [
+   {
+    "plugItemHash": 5401
+   },
+   {
+    "plugItemHash": 5403
+   }
+  ]
+ },
+ "9999": {
+  "reusablePlugItems": [
+   {
+    "plugItemHash": 5101
+   }
+  ]
+ }
+}

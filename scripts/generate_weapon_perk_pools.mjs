@@ -218,7 +218,7 @@ async function fetchWithRetry(url, retries = 5) {
   throw lastError ?? new Error("Fetch failed for " + url);
 }
 
-async function fetchManifestTables() {
+export async function fetchManifestTables() {
   const response = await fetchWithRetry(MANIFEST_URL);
   const json = await response.json();
   const manifest = json?.Response;
@@ -259,7 +259,7 @@ function makeNameLookup(records) {
   return { byId, byHash, bySlug };
 }
 
-function createPerkResolver(perkRecords, manifestItems, manifestVersion, generatedPerks) {
+export function createPerkResolver(perkRecords, manifestItems, manifestVersion, generatedPerks) {
   const lookup = makeNameLookup(perkRecords);
   const resolvedHashes = new Map();
   function resolve(hash, options = {}) {

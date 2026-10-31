@@ -1,0 +1,37 @@
+{
+ "201": {
+  "displayProperties": {
+   "name": "Intrinsic"
+  }
+ },
+ "202": {
+  "displayProperties": {
+   "name": "Barrel"
+  }
+ },
+ "203": {
+  "displayProperties": {
+   "name": "Magazine"
+  }
+ },
+ "204": {
+  "displayProperties": {
+   "name": "Trait"
+  }
+ },
+ "205": {
+  "displayProperties": {
+   "name": "Trait"
+  }
+ },
+ "206": {
+  "displayProperties": {
+   "name": "Masterwork"
+  }
+ },
+ "299": {
+  "displayProperties": {
+   "name": "Unused"
+  }
+ }
+}
