@@ -204,12 +204,18 @@ function validateGeneratedPool(
   if (typeof pool.weapon_id !== "string" || !pool.weapon_id || pool.weapon_id.length > 180) {
     throw new Error("Invalid pool weapon_id.");
   }
-  if (!Number.isSafeInteger(pool.weapon_hash) || Number(pool.weapon_hash) <= 0) {
-    throw new Error("A generated pool must have an exact positive weapon hash.");
+  const hasExactWeaponHash = Number.isSafeInteger(pool.weapon_hash) && Number(pool.weapon_hash) > 0;
+  const hasNullHashUnknown = pool.pool_status === "unknown" &&
+    (pool.weapon_hash === null || pool.weapon_hash === undefined);
+  if (!hasExactWeaponHash && !hasNullHashUnknown) {
+    throw new Error("Only unknown pools may be uploaded without a resolved weapon hash.");
   }
   const notes = Array.isArray(pool.notes) ? pool.notes : [];
-  if (!notes.includes("Generated from Bungie's live manifest snapshot " +
-      manifestVersion + " for this exact weapon item hash.")) {
+  const hasExactSourceNote = notes.includes("Generated from Bungie's live manifest snapshot " +
+    manifestVersion + " for this exact weapon item hash.");
+  const hasUnknownCheckNote = pool.pool_status === "unknown" &&
+    notes.includes("Manifest snapshot checked: " + manifestVersion + ".");
+  if (!hasExactSourceNote && !hasUnknownCheckNote) {
     throw new Error("Pool source note does not match the current Manifest version.");
   }
   if (!notes.includes("Pool extraction generator version: " + generatorVersion + ".")) {
