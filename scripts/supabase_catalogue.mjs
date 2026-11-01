@@ -36,6 +36,11 @@ function configuration() {
   return { url, key };
 }
 
+/** Public read configuration; the publishable key is safe to ship in clients. */
+export function getSupabaseReadConfiguration() {
+  return configuration();
+}
+
 function legacyBearer(key, headers) {
   if (key.startsWith("eyJ")) headers.Authorization = "Bearer " + key;
 }
