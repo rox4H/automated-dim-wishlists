@@ -10,6 +10,8 @@ import {
   hasSocketSource,
   slugify,
   createUnknownPool,
+  createPerkResolver,
+  fingerprintManifestTables,
   shouldPreservePool,
   shouldRetainEmptySlot,
   buildPoolForWeapon,
@@ -149,7 +151,123 @@ test("rebuilds stale generated pools but preserves manual and verified pools", (
   assert.equal(shouldPreservePool(manual), true);
   assert.equal(shouldPreservePool(verifiedGenerated), true);
   assert.equal(shouldPreservePool(currentGenerated, true), false);
+  assert.equal(shouldPreservePool(verifiedGenerated, true), true, "force must never bypass human verification");
+  assert.equal(shouldPreservePool(manual, true), true, "force must never overwrite a manual pool");
   assert.equal(shouldPreservePool({ pool_status: "unknown", notes: [] }), false);
+
+  const fingerprinted = {
+    pool_status: "complete",
+    verification_status: "unverified",
+    notes: [
+      "Generated from Bungie's live manifest snapshot current-manifest for this exact weapon item hash.",
+      "Pool extraction generator version: " + GENERATOR_VERSION + ".",
+      "Manifest component fingerprint (SHA-256): abc123.",
+    ],
+  };
+  assert.equal(shouldPreservePool(fingerprinted, false, "current-manifest", "abc123"), true);
+  assert.equal(shouldPreservePool(fingerprinted, false, "current-manifest", "different"), false);
+  assert.equal(shouldPreservePool(fingerprinted, false, "new-manifest", "abc123"), false);
+});
+
+test("strict perk resolution never reuses a same-name row without the exact Bungie hash", () => {
+  const existing = {
+    id: "opening-shot",
+    name: "Opening Shot",
+    bungie_hash: null,
+    perk_type: "trait",
+    description: "Existing catalogue text",
+    verification_status: "unverified",
+    last_verified: null,
+    notes: [],
+  };
+  const definitions = {
+    "201": {
+      displayProperties: { name: "Opening Shot", description: "Manifest description" },
+      itemTypeDisplayName: "Trait",
+      plug: { plugCategoryIdentifier: "trait" },
+    },
+    "202": {
+      displayProperties: { name: "Opening Shot", description: "Another exact definition" },
+      itemTypeDisplayName: "Trait",
+      plug: { plugCategoryIdentifier: "trait" },
+    },
+    "203": {
+      displayProperties: { name: "Snapshot Sights", description: "Snapshot description" },
+      itemTypeDisplayName: "Trait",
+      plug: { plugCategoryIdentifier: "trait" },
+    },
+  };
+  const generated = new Map();
+  const resolver = createPerkResolver(
+    [{ record: existing }],
+    definitions,
+    "test-manifest",
+    generated,
+    { strictHashOnly: true },
+  );
+
+  assert.equal(resolver.resolve(201), "opening-shot-201");
+  assert.equal(resolver.resolve(202), "opening-shot-202");
+  assert.equal(resolver.resolve(203), "snapshot-sights");
+  assert.equal(generated.size, 3);
+  assert.equal(generated.get("opening-shot-201").bungie_hash, 201);
+  assert.equal(generated.get("opening-shot-202").bungie_hash, 202);
+});
+
+test("strict perk resolution accepts an exact hash match but rejects a conflicting name", () => {
+  const exact = {
+    id: "opening-shot",
+    name: "Opening Shot",
+    bungie_hash: 201,
+    perk_type: "trait",
+  };
+  const conflicting = {
+    id: "wrong-record",
+    name: "Different Name",
+    bungie_hash: 202,
+    perk_type: "trait",
+  };
+  const definitions = {
+    "201": { displayProperties: { name: "Opening Shot" }, itemTypeDisplayName: "Trait" },
+    "202": { displayProperties: { name: "Manifest Name" }, itemTypeDisplayName: "Trait" },
+  };
+  const generated = new Map();
+  const resolver = createPerkResolver(
+    [{ record: exact }, { record: conflicting }],
+    definitions,
+    "test-manifest",
+    generated,
+    { strictHashOnly: true },
+  );
+
+  assert.equal(resolver.resolve(201), "opening-shot");
+  assert.equal(resolver.resolve(202), null);
+  assert.equal(generated.size, 0);
+});
+
+test("manifest fingerprints are deterministic and react to definition content changes", () => {
+  const first = {
+    DestinyInventoryItemDefinition: {
+      "2": { displayProperties: { name: "B" } },
+      "1": { displayProperties: { name: "A" } },
+    },
+    DestinyPlugSetDefinition: { "7": { reusablePlugItems: [{ plugItemHash: 1 }] } },
+    DestinySocketCategoryDefinition: {},
+    DestinySocketTypeDefinition: {},
+  };
+  const reordered = {
+    DestinyInventoryItemDefinition: {
+      "1": { displayProperties: { name: "A" } },
+      "2": { displayProperties: { name: "B" } },
+    },
+    DestinyPlugSetDefinition: { "7": { reusablePlugItems: [{ plugItemHash: 1 }] } },
+    DestinySocketCategoryDefinition: {},
+    DestinySocketTypeDefinition: {},
+  };
+  const changed = structuredClone(reordered);
+  changed.DestinyInventoryItemDefinition["1"].displayProperties.name = "Changed";
+  assert.equal(fingerprintManifestTables(first), fingerprintManifestTables(reordered));
+  assert.notEqual(fingerprintManifestTables(first), fingerprintManifestTables(changed));
 });
 
 test("unknown pool placeholder explicitly states that unknown does not mean no perks", () => {
