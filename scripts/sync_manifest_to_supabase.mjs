@@ -21,6 +21,8 @@ import {
   fingerprintManifestTables,
   GENERATOR_VERSION,
 } from "./generate_weapon_perk_pools.mjs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { fetchCatalogueRows, getSupabaseReadConfiguration } from "./supabase_catalogue.mjs";
 
 export const OIDC_AUDIENCE = "urn:rox4h:d2wd-supabase-sync";
@@ -372,7 +374,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === new URL("file://" + process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
