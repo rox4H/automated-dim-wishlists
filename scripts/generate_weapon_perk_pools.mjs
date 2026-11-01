@@ -203,7 +203,12 @@ export function createUnknownPool(weapon, reason, manifestVersion = null, access
     "Unknown means the perk pool could not be resolved from the available manifest data; it does not mean the weapon has no perks.",
     String(reason),
   ];
-  if (manifestVersion) notes.push("Manifest snapshot checked: " + manifestVersion + ".");
+  if (manifestVersion && hash !== null) {
+    notes.unshift("Generated from Bungie's live manifest snapshot " + manifestVersion + " for this exact weapon item hash.");
+  } else if (manifestVersion) {
+    notes.push("Manifest snapshot checked: " + manifestVersion + ".");
+  }
+  if (manifestVersion) notes.push("Pool extraction generator version: " + GENERATOR_VERSION + ".");
   return {
     weapon_id: weapon.id, weapon_hash: hash, version_label: weapon.season ?? null,
     pool_status: "unknown", verification_status: "unverified", last_verified: null,
