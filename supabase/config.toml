@@ -1,0 +1,4 @@
+# Local Supabase CLI configuration for D2WD.
+# The production function is deployed with the same setting.
+[functions.d2wd-sync-import]
+verify_jwt = false
