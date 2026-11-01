@@ -3,7 +3,10 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const EXPECTED_AUDIENCE = "urn:rox4h:d2wd-supabase-sync";
 const EXPECTED_ISSUER = "https://token.actions.githubusercontent.com";
 const EXPECTED_REPOSITORY = "rox4H/automated-dim-wishlists";
+const EXPECTED_REPOSITORY_OWNER_ID = "93459526";
 const EXPECTED_REPOSITORY_ID = "1438586516";
+const EXPECTED_SUB =
+  "repo:rox4H@93459526/automated-dim-wishlists@1438586516:environment:d2wd-catalogue-sync";
 const EXPECTED_REF = "refs/heads/main";
 const EXPECTED_WORKFLOW_REF =
   "rox4H/automated-dim-wishlists/.github/workflows/sync-bungie-catalogue.yml@refs/heads/main";
@@ -63,15 +66,15 @@ function validateGitHubClaims(claims: JsonRecord): void {
   if (claims.iss !== EXPECTED_ISSUER) throw new Error("OIDC issuer is not trusted.");
   if (!audiences.includes(EXPECTED_AUDIENCE)) throw new Error("OIDC audience is not trusted.");
   if (String(claims.repository) !== EXPECTED_REPOSITORY ||
+      String(claims.repository_owner_id) !== EXPECTED_REPOSITORY_OWNER_ID ||
       String(claims.repository_id) !== EXPECTED_REPOSITORY_ID) {
     throw new Error("OIDC repository identity is not trusted.");
   }
   if (claims.ref !== EXPECTED_REF || claims.workflow_ref !== EXPECTED_WORKFLOW_REF) {
     throw new Error("OIDC token did not originate from the protected main-branch sync workflow.");
   }
-  if (claims.environment !== EXPECTED_ENVIRONMENT ||
-      claims.sub !== "repo:rox4H/automated-dim-wishlists:environment:d2wd-catalogue-sync") {
-    throw new Error("OIDC deployment environment is not trusted.");
+  if (claims.environment !== EXPECTED_ENVIRONMENT || claims.sub !== EXPECTED_SUB) {
+    throw new Error("OIDC deployment environment or immutable subject is not trusted.");
   }
   if (!["schedule", "workflow_dispatch"].includes(String(claims.event_name))) {
     throw new Error("OIDC event type is not allowed.");
