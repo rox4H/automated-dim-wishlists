@@ -356,7 +356,7 @@ export function createPerkResolver(perkRecords, manifestItems, manifestVersion, 
         verification_status: "unverified", last_verified: null,
         notes: [
           "Seeded automatically from the Bungie manifest snapshot " + manifestVersion + " while resolving an exact plug hash.",
-          "Resolved by exact Bungie item hash only; verify this definition and its historical/enhanced variant before marking it verified.",
+          "Resolved by exact plug hash (Bungie item hash) only; verify this definition and its historical/enhanced variant before marking it verified.",
         ],
       };
       lookup.byId.set(id, record);
