@@ -63,6 +63,9 @@ jobs:
       - name: Run generator regression tests
         run: node --test tests/test_generate_weapon_perk_pools.mjs
 
+      - name: Run Supabase Manifest sync planner tests
+        run: node --test tests/test_sync_manifest_to_supabase.mjs
+
       - name: Test recommendation-intake outcome classification
         run: node --test tests/test_recommendation_intake_outcome.cjs
       - name: Test immutable recommendation snapshots
