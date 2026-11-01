@@ -320,6 +320,10 @@ export function createPerkResolver(perkRecords, manifestItems, manifestVersion, 
 
     const exactHashRecords = lookup.byHash.get(numericHash) ?? [];
     if (exactHashRecords.length === 1) {
+      if (strictHashOnly && exactHashRecords[0].name !== name) {
+        resolvedHashes.set(numericHash, null);
+        return null;
+      }
       resolvedHashes.set(numericHash, exactHashRecords[0].id);
       return exactHashRecords[0].id;
     }
