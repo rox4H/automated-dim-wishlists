@@ -133,6 +133,31 @@ def main() -> int:
         if re.search(r"git\s+push\s+origin\s+.*(?:refs/heads/main|HEAD:main)", content):
             errors.append(f"{path.relative_to(ROOT)}: must not push directly to main.")
 
+    sync_path = WORKFLOW_DIR / "sync-bungie-catalogue.yml"
+    sync_workflow = contents.get(sync_path, "")
+    if not sync_workflow:
+        errors.append("Manifest sync workflow is missing.")
+    else:
+        for marker, error in (
+            ("github.repository == 'rox4H/automated-dim-wishlists'", "Manifest sync must be restricted to the canonical repository."),
+            ("github.ref == 'refs/heads/main'", "Manifest sync must run only from main."),
+            ("environment: d2wd-catalogue-sync", "Manifest sync must use the dedicated GitHub environment."),
+            ("id-token: write", "Manifest sync must obtain a GitHub OIDC identity token."),
+            ("vars.D2WD_SUPABASE_SYNC_ENABLED", "Manifest writes must be disabled unless the repository variable explicitly enables them."),
+            ("scripts/sync_manifest_to_supabase.mjs", "Manifest sync must use the audited non-destructive sync planner."),
+            ("node --max-old-space-size=8192 scripts/sync_manifest_to_supabase.mjs --write", "The opt-in write path must invoke the sync planner explicitly."),
+        ):
+            if marker not in sync_workflow:
+                errors.append(error)
+        if re.search(r"(?m)^\s+contents:\s*write\s*$", sync_workflow):
+            errors.append("Manifest sync must not have contents: write.")
+        if "pull_request_target:" in sync_workflow:
+            errors.append("Manifest sync must not use pull_request_target.")
+        if any(marker in sync_workflow for marker in (
+            "SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY", "service_role", "sb_secret_",
+        )):
+            errors.append("Manifest sync workflow must never contain Supabase write credentials.")
+
     validator_path = WORKFLOW_DIR / "validate-recommendation-issue.yml"
     validator = contents.get(validator_path, "")
     if "github.ref == 'refs/heads/main'" not in validator:
