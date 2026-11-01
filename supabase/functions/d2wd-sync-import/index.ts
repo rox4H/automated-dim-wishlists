@@ -201,7 +201,7 @@ function validateGeneratedPool(
   if (!["complete", "partial", "unknown"].includes(String(pool.pool_status))) {
     throw new Error("Invalid pool_status.");
   }
-  if (typeof pool.weapon_id !== "string" || !pool.weapon_id || pool.weapon_id.length > 180) {
+  if (typeof pool.weapon_id !== "string" || !/^[a-z0-9][a-z0-9-]*_s[0-9]{1,3}$/.test(pool.weapon_id)) {
     throw new Error("Invalid pool weapon_id.");
   }
   const hasExactWeaponHash = Number.isSafeInteger(pool.weapon_hash) && Number(pool.weapon_hash) > 0;
@@ -227,7 +227,7 @@ function validateGeneratedPool(
 }
 
 function validateGeneratedPerk(perk: JsonRecord): void {
-  if (typeof perk.id !== "string" || !perk.id || perk.id.length > 180 ||
+  if (typeof perk.id !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(perk.id) ||
       typeof perk.name !== "string" || !perk.name ||
       !Number.isSafeInteger(perk.bungie_hash) || Number(perk.bungie_hash) <= 0 ||
       perk.verification_status !== "unverified" || perk.last_verified !== null) {
@@ -362,7 +362,11 @@ async function uploadPools(admin: ReturnType<typeof createClient>, body: JsonRec
       skipped++;
       continue;
     }
-    if (current && current.pool_status !== "unknown" && !isGeneratedPool(current)) {
+    const currentIsGeneratedUnknown = current?.pool_status === "unknown" &&
+      Array.isArray(current.notes) &&
+      current.notes.some((note) => typeof note === "string" &&
+        note.startsWith("Unknown means the perk pool could not be resolved"));
+    if (current && !isGeneratedPool(current) && !currentIsGeneratedUnknown) {
       skipped++;
       continue;
     }
