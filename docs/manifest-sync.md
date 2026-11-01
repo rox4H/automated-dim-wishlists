@@ -43,7 +43,11 @@ The workflow obtains a short-lived GitHub OIDC token with audience `urn:rox4h:d2
 - the exact workflow path on `main`
 - the `d2wd-catalogue-sync` GitHub Environment and subject
 - the `schedule` or `workflow_dispatch` event
-- token time claims and the expected audience
+- the immutable subject for this repository:
+  `repo:rox4H@93459526/automated-dim-wishlists@1438586516:environment:d2wd-catalogue-sync`
+- token time claims
+
+GitHub repositories created after 15 July 2026 use immutable owner/repository IDs in the OIDC `sub` claim. This repository was created on 29 October 2026, so the gateway validates the ID-based subject rather than the older name-only format. and the expected audience
 
 The Edge Function uses the server-side Supabase secret key from its own environment. That key never enters GitHub Actions or the repository. The function is deployed with platform JWT verification disabled because it performs this stricter GitHub OIDC verification itself; do not remove or bypass the verification code in `supabase/functions/d2wd-sync-import/index.ts`.
 
