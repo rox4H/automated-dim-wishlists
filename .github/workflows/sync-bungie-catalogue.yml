@@ -1,0 +1,47 @@
+name: Sync Bungie Manifest to Supabase
+
+on:
+  schedule:
+    - cron: "13 5 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: d2wd-manifest-sync-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Refresh generated catalogue data
+    if: github.repository == 'rox4H/automated-dim-wishlists' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: d2wd-catalogue-sync
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      D2WD_SYNC_ENABLED: ${{ vars.D2WD_SUPABASE_SYNC_ENABLED }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Plan or apply the Manifest refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${D2WD_SYNC_ENABLED:-}" == "true" ]]; then
+            echo "Production sync is enabled for this repository."
+            node --max-old-space-size=8192 scripts/sync_manifest_to_supabase.mjs --write
+          else
+            echo "D2WD_SUPABASE_SYNC_ENABLED is not true; running a read-only dry run."
+            node --max-old-space-size=8192 scripts/sync_manifest_to_supabase.mjs
+          fi
