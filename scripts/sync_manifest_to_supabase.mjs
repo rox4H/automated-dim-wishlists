@@ -247,7 +247,7 @@ async function invokeSyncFunction(payload) {
   return body;
 }
 
-async function uploadBatches(action, runId, records, manifestVersion) {
+async function uploadBatches(action, runId, records, manifestVersion, generatorVersion) {
   let uploaded = 0;
   for (let offset = 0; offset < records.length; offset += BATCH_SIZE) {
     const batch = records.slice(offset, offset + BATCH_SIZE);
@@ -255,6 +255,7 @@ async function uploadBatches(action, runId, records, manifestVersion) {
       action,
       runId,
       manifestVersion,
+      generatorVersion,
       records: batch,
     });
     uploaded += Number(result.accepted ?? 0);
@@ -337,7 +338,7 @@ async function main() {
     if (!write) return;
 
     const newPerksUploaded = await uploadBatches("upload-perks", runId, plan.newPerks, plan.manifestVersion);
-    const poolsUploaded = await uploadBatches("upload-pools", runId, plan.changedPools, plan.manifestVersion);
+    const poolsUploaded = await uploadBatches("upload-pools", runId, plan.changedPools, plan.manifestVersion, String(GENERATOR_VERSION));
     const finalStats = {
       ...plan.stats,
       manifest_fingerprint: plan.manifestFingerprint,
