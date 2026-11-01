@@ -138,10 +138,14 @@ export function shouldPreservePool(existing, forceGenerated = false, manifestVer
   // A verified pool is immutable to every automated path, including force options.
   if (existing.verification_status === "verified") return true;
 
-  // Unknown pools represent an unresolved extraction and should be retried.
-  if (existing.pool_status === "unknown") return false;
-
   const notes = Array.isArray(existing.notes) ? existing.notes.map(String) : [];
+  const generatedUnknown = notes.some((note) =>
+    note.startsWith("Unknown means the perk pool could not be resolved"),
+  );
+  // Regenerate only machine-generated unknown placeholders. A manually authored
+  // unknown record without the generator marker remains protected.
+  if (existing.pool_status === "unknown") return generatedUnknown;
+
   const generatedByThisScript = notes.some((note) =>
     note.startsWith("Generated from Bungie's live manifest snapshot "),
   );
