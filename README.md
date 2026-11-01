@@ -58,7 +58,9 @@ Use the [correction issue](https://github.com/rox4H/automated-dim-wishlists/issu
 | `exports/` | The two DIM wishlist files. Generated; don't edit by hand. |
 | `recommendations/curated/`, `recommendations/community/` | Source records, one JSON file per weapon version and mode. |
 | `schemas/` | JSON Schemas for the records. |
-| `scripts/` | Validation and export tooling. |
+| `scripts/` | Validation, export, and read-only/controlled sync tooling. |
+| `supabase/` | Versioned database migrations and Edge Functions. |
+| `docs/manifest-sync.md` | Supabase Manifest sync safety model and activation instructions. |
 | `tests/` | Python and Node.js tests. |
 | `.github/` | Issue forms, CI, and the intake and publication workflows. |
 
