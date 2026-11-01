@@ -5,6 +5,7 @@
  *
  * Run: node --max-old-space-size=8192 scripts/generate_weapon_perk_pools.mjs --write
  */
+import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -131,18 +132,39 @@ export function inferPerkType(definition, override = null) {
   return "other";
 }
 
-export function shouldPreservePool(existing, force = false) {
-  if (!existing || force || existing.pool_status === "unknown") return false;
-  // A verified pool is human-reviewed and must not be overwritten by manifest generation.
+export function shouldPreservePool(existing, forceGenerated = false, manifestVersion = null, manifestFingerprint = null) {
+  if (!existing) return false;
+
+  // A verified pool is immutable to every automated path, including force options.
   if (existing.verification_status === "verified") return true;
-  const notes = Array.isArray(existing.notes) ? existing.notes : [];
+
+  // Unknown pools represent an unresolved extraction and should be retried.
+  if (existing.pool_status === "unknown") return false;
+
+  const notes = Array.isArray(existing.notes) ? existing.notes.map(String) : [];
   const generatedByThisScript = notes.some((note) =>
-    String(note).startsWith("Generated from Bungie's live manifest snapshot "),
+    note.startsWith("Generated from Bungie's live manifest snapshot "),
   );
-  const hasCurrentVersion = notes.includes("Pool extraction generator version: " + GENERATOR_VERSION + ".");
-  // Preserve manual/unmarked records; regenerate generated unverified pools when the
-  // extractor version changes so algorithm fixes reach previously generated files.
-  return !generatedByThisScript || hasCurrentVersion;
+
+  // Manually curated or otherwise unmarked pools are never overwritten automatically.
+  if (!generatedByThisScript) return true;
+
+  // This flag can only rebuild generated, unverified pools. It cannot override
+  // the protections above for verified or manual pools.
+  if (forceGenerated) return false;
+
+  const hasCurrentGenerator = notes.includes("Pool extraction generator version: " + GENERATOR_VERSION + ".");
+  if (!hasCurrentGenerator) return false;
+
+  // Legacy callers without a content fingerprint retain the old version-only
+  // behaviour. Production sync passes both values and detects same-version drift.
+  if (!manifestVersion || !manifestFingerprint) return true;
+
+  const hasCurrentManifest = notes.some((note) =>
+    note.startsWith("Generated from Bungie's live manifest snapshot " + manifestVersion + " for this exact weapon item hash."),
+  );
+  const hasCurrentFingerprint = notes.includes("Manifest component fingerprint (SHA-256): " + manifestFingerprint + ".");
+  return hasCurrentManifest && hasCurrentFingerprint;
 }
 
 export function inferUnclassifiedSocketCategory(candidateDefinitions, missingPlugSets = []) {
@@ -218,7 +240,29 @@ async function fetchWithRetry(url, retries = 5) {
   throw lastError ?? new Error("Fetch failed for " + url);
 }
 
-async function fetchManifestTables() {
+export function fingerprintManifestTables(tables) {
+  const hash = createHash("sha256");
+  const tableNames = [
+    "DestinyInventoryItemDefinition",
+    "DestinyPlugSetDefinition",
+    "DestinySocketCategoryDefinition",
+    "DestinySocketTypeDefinition",
+  ];
+  for (const tableName of tableNames) {
+    const table = tables?.[tableName] ?? {};
+    hash.update(tableName + "\n");
+    const keys = Object.keys(table).sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
+    for (const key of keys) {
+      hash.update(key);
+      hash.update("\0");
+      hash.update(JSON.stringify(table[key]));
+      hash.update("\n");
+    }
+  }
+  return hash.digest("hex");
+}
+
+export async function fetchManifestTables() {
   const response = await fetchWithRetry(MANIFEST_URL);
   const json = await response.json();
   const manifest = json?.Response;
@@ -259,7 +303,8 @@ function makeNameLookup(records) {
   return { byId, byHash, bySlug };
 }
 
-function createPerkResolver(perkRecords, manifestItems, manifestVersion, generatedPerks) {
+export function createPerkResolver(perkRecords, manifestItems, manifestVersion, generatedPerks, options = {}) {
+  const strictHashOnly = options.strictHashOnly === true;
   const lookup = makeNameLookup(perkRecords);
   const resolvedHashes = new Map();
   function resolve(hash, options = {}) {
@@ -284,6 +329,42 @@ function createPerkResolver(perkRecords, manifestItems, manifestVersion, generat
         resolvedHashes.set(numericHash, exactName[0].id);
         return exactName[0].id;
       }
+      if (strictHashOnly) {
+        resolvedHashes.set(numericHash, null);
+        return null;
+      }
+    }
+
+    if (strictHashOnly) {
+      // In strict mode display-name similarity is never an identity key. If this
+      // exact plug hash is not already represented, create a distinct unverified
+      // record and suffix collisions rather than reusing a same-name record.
+      const normalizedName = slugify(name);
+      const baseId = normalizedName || ("perk-" + numericHash);
+      let id = baseId;
+      if (lookup.byId.has(id)) id = baseId + "-" + numericHash;
+      let suffix = 2;
+      while (lookup.byId.has(id)) id = baseId + "-" + numericHash + "-" + suffix++;
+      const record = {
+        id, name, bungie_hash: numericHash,
+        perk_type: inferPerkType(definition, options.forceType ?? null),
+        description: String(definition?.displayProperties?.description ?? "").trim() || null,
+        verification_status: "unverified", last_verified: null,
+        notes: [
+          "Seeded automatically from the Bungie manifest snapshot " + manifestVersion + " while resolving an exact plug hash.",
+          "Resolved by exact Bungie item hash only; verify this definition and its historical/enhanced variant before marking it verified.",
+        ],
+      };
+      lookup.byId.set(id, record);
+      const slugEntries = lookup.bySlug.get(normalizedName) ?? [];
+      slugEntries.push(record);
+      lookup.bySlug.set(normalizedName, slugEntries);
+      const hashEntries = lookup.byHash.get(numericHash) ?? [];
+      hashEntries.push(record);
+      lookup.byHash.set(numericHash, hashEntries);
+      generatedPerks.set(id, record);
+      resolvedHashes.set(numericHash, id);
+      return id;
     }
 
     const normalizedName = slugify(name);
@@ -538,6 +619,7 @@ async function main() {
   const accessed = new Date().toISOString().slice(0, 10);
   console.log("Downloading Bungie manifest tables. This may take several minutes.");
   const manifest = await fetchManifestTables();
+  manifest.fingerprint = fingerprintManifestTables(manifest.tables);
   const items = manifest.tables.DestinyInventoryItemDefinition;
   const plugSets = manifest.tables.DestinyPlugSetDefinition;
   if (!items || Object.keys(items).length === 0 || !plugSets) throw new Error("Required manifest tables are empty.");
@@ -558,13 +640,17 @@ async function main() {
   for (let index = 0; index < weapons.length; index++) {
     const weapon = weapons[index].record;
     const existing = existingPoolsById.get(weapon.id) ?? null;
-    if (shouldPreservePool(existing, force)) {
+    if (shouldPreservePool(existing, force, manifest.version, manifest.fingerprint)) {
       poolRecords.set(weapon.id, existing);
       stats.preserved++;
       continue;
     }
     if (Number.isSafeInteger(weapon.bungie_hash) && items[String(weapon.bungie_hash)]) stats.matchedDefinitions++;
     const pool = buildPoolForWeapon(weapon, manifest, perkResolver, { accessed });
+    pool.notes = [
+      ...(Array.isArray(pool.notes) ? pool.notes : []),
+      "Manifest component fingerprint (SHA-256): " + manifest.fingerprint + ".",
+    ];
     poolRecords.set(weapon.id, pool);
     changedPools.push(pool);
     if (pool.pool_status === "complete") stats.complete++;
