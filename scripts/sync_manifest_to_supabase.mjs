@@ -46,7 +46,11 @@ function poolNeedsRegeneration(existing, {
 } = {}) {
   if (!existing) return true;
   if (existing.verification_status === "verified") return false;
-  if (existing.pool_status === "unknown") return true;
+  if (existing.pool_status === "unknown") {
+    return isGeneratedPool(existing) || notesOf(existing).some((note) =>
+      note.startsWith("Unknown means the perk pool could not be resolved"),
+    );
+  }
   if (!isGeneratedPool(existing)) return false;
 
   const notes = notesOf(existing);
