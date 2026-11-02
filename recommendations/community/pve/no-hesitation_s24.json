@@ -1,0 +1,24 @@
+{
+  "weapon_id": "no-hesitation_s24",
+  "weapon_perk_pool_id": "no-hesitation_s24",
+  "publication_status": "mechanically_validated",
+  "validation_scope": "canonical-dependencies-and-perk-slots",
+  "recommendations": [
+    {
+      "mode": "pve",
+      "name": "healing god",
+      "barrel": "arrowhead-brake",
+      "magazine": "accurized-rounds",
+      "perk_3": "physic",
+      "perk_4": "chaos-reshaped",
+      "description": "```text\nhealing god\n```",
+      "github_username": "rox4H",
+      "issue_number": 22,
+      "submitted_at": "2026-11-01T23:09:02Z",
+      "publication_status": "mechanically_validated",
+      "validation_scope": "canonical-dependencies-and-perk-slots",
+      "published_by": "github-actions[bot]"
+    }
+  ],
+  "published_by": "github-actions[bot]"
+}
