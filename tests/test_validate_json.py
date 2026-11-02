@@ -224,8 +224,10 @@ class ValidateJsonTests(unittest.TestCase):
                 errors,
             )
 
-    def test_current_repository_is_valid(self) -> None:
-        self.assertEqual(validate_repository(ROOT), [])
+    # The live repository is validated by the dedicated CI step running
+    # `python scripts/validate_json.py`. Keep this unit-test suite hermetic:
+    # each test uses local fixtures instead of issuing duplicate Supabase
+    # catalogue reads across every Python version in the CI matrix.
 
     def test_duplicate_json_object_keys_are_rejected(self) -> None:
         with self.assertRaisesRegex(DuplicateKeyError, "duplicate JSON object key"):
