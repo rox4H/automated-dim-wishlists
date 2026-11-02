@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from export_dim_wishlist import WishlistExportError, generate_wishlist  # noqa: E402
+from export_dim_wishlist import WishlistExportError, generate_wishlist, main  # noqa: E402
 
 
 class ExportDimWishlistTests(unittest.TestCase):
@@ -360,6 +360,69 @@ class ExportDimWishlistTests(unittest.TestCase):
         self.assertNotIn("BY @bob", pve_output)
         self.assertIn("BY @bob", pvp_output)
         self.assertNotIn("BY @alice", pvp_output)
+
+
+    def test_generates_one_personal_wishlist_per_github_author(self) -> None:
+        pve = self._community_record(
+            "pve",
+            [
+                self._community_recommendation(
+                    "pve", issue_number=84, username="Alice", name="Alice PvE",
+                    description="First Alice roll.",
+                ),
+                self._community_recommendation(
+                    "pve", issue_number=85, username="alice", name="Alice sight roll",
+                    barrel=None, sight="sight-one",
+                    description="Second Alice roll.",
+                ),
+            ],
+        )
+        pvp = self._community_record(
+            "pvp",
+            [
+                self._community_recommendation(
+                    "pvp", issue_number=86, username="bob", name="Bob PvP",
+                    sight="sight-one", barrel=None,
+                    description="Bob roll.",
+                )
+            ],
+        )
+        self._write_json(
+            self.root / "recommendations" / "community" / "pve" / "sample-weapon_s1.json",
+            pve,
+        )
+        self._write_json(
+            self.root / "recommendations" / "community" / "pvp" / "sample-weapon_s1.json",
+            pvp,
+        )
+
+        output = self.root / "exports" / "d2wd_community.txt"
+        personal_dir = self.root / "exports" / "users"
+        args = [
+            "--source", "community",
+            "--output", str(output),
+            "--per-author-dir", str(personal_dir),
+            "--root", str(self.root),
+        ]
+        self.assertEqual(main(args), 0)
+
+        alice = (personal_dir / "alice.txt").read_text(encoding="utf-8")
+        bob = (personal_dir / "bob.txt").read_text(encoding="utf-8")
+        community = output.read_text(encoding="utf-8")
+        self.assertEqual(alice.count("\ndimwishlist:item="), 2)
+        self.assertIn("BY @Alice | Alice PvE", alice)
+        self.assertIn("BY @alice | Alice sight roll", alice)
+        self.assertNotIn("BY @bob", alice)
+        self.assertEqual(bob.count("\ndimwishlist:item="), 1)
+        self.assertIn("PVP | BY @bob | Bob PvP", bob)
+        self.assertNotIn("BY @Alice", bob)
+        self.assertEqual(community.count("\ndimwishlist:item="), 3)
+
+        self.assertEqual(main(args + ["--check"]), 0)
+        (personal_dir / "obsolete.txt").write_text("stale\n", encoding="utf-8")
+        self.assertEqual(main(args + ["--check"]), 1)
+        self.assertEqual(main(args), 0)
+        self.assertFalse((personal_dir / "obsolete.txt").exists())
 
 if __name__ == "__main__":
     unittest.main()

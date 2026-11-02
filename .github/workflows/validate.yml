@@ -44,8 +44,8 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Ensure curated DIM wishlist is current
         run: python scripts/export_dim_wishlist.py --source curated --check
-      - name: Ensure community DIM wishlist is current
-        run: python scripts/export_dim_wishlist.py --source community --check
+      - name: Ensure community and per-author DIM wishlists are current
+        run: python scripts/export_dim_wishlist.py --source community --per-author-dir exports/users --check
 
   test-generator:
     name: Node.js weapon perk-pool generator tests

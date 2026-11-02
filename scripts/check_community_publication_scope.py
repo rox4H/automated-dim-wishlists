@@ -11,6 +11,7 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 COMMUNITY_EXPORT = "exports/d2wd_community.txt"
+PERSONAL_EXPORT_RE = re.compile(r"^exports/users/[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?\.txt$")
 CURATED_PATHS = ("recommendations/curated", "exports/d2wd_curated.txt")
 TARGET_RE = re.compile(r"^recommendations/community/(pve|pvp)/[a-z0-9]+(?:-[a-z0-9]+)*_s[0-9]+(?:-[0-9]+)?\.json$")
 COMMUNITY_JSON_RE = TARGET_RE
@@ -49,13 +50,13 @@ def validate_publication_scope(
 
     staged = sorted(set(staged_paths))
     for path in staged:
-        if path == COMMUNITY_EXPORT:
+        if path == COMMUNITY_EXPORT or PERSONAL_EXPORT_RE.fullmatch(path):
             continue
         match = COMMUNITY_JSON_RE.fullmatch(path)
         if match is None or path != target_path:
             raise PublicationScopeError(
-                f"Refusing to stage {path!r}; only the target weapon/mode community JSON and "
-                f"{COMMUNITY_EXPORT!r} may be committed."
+                f"Refusing to stage {path!r}; only the target weapon/mode community JSON, "
+                f"{COMMUNITY_EXPORT!r}, and safely named exports/users/<github-login>.txt files may be committed."
             )
 
     # A new or modified publication record must be included. A no-op rerun is

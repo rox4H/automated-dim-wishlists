@@ -199,6 +199,7 @@ def generate_wishlist(
     mode: str = "all",
     verified_only: bool = False,
     source: str = "all",
+    author_roll_lines: dict[str, tuple[str, list[str]]] | None = None,
 ) -> str:
     """Return a deterministic DIM wishlist for curated or aggregated community recommendations."""
     root = Path(root).resolve()
@@ -206,6 +207,10 @@ def generate_wishlist(
         raise WishlistExportError(f"Unsupported mode {mode!r}; choose all, pve, or pvp")
     if source not in ALLOWED_SOURCES:
         raise WishlistExportError(f"Unsupported source {source!r}; choose all, curated, or community")
+    if author_roll_lines is not None and source != "community":
+        raise WishlistExportError("Per-author exports are available only for the community source.")
+    if author_roll_lines is not None:
+        author_roll_lines.clear()
 
     try:
         duplicate_pairs = find_duplicate_pairs(root)
@@ -356,10 +361,19 @@ def generate_wishlist(
                     note_parts.append(f"BY @{author}")
             note_parts.append(label)
             note = _clean_note(" | ".join(note_parts))
-            roll_lines.append(
+            line = (
                 f"dimwishlist:item={weapon_hash}&perks={','.join(str(value) for value in perk_hashes)}"
                 f"#notes:{note}"
             )
+            roll_lines.append(line)
+            if is_community and author_roll_lines is not None:
+                author = recommendation["github_username"]
+                author_key = author.casefold()
+                bucket = author_roll_lines.get(author_key)
+                if bucket is None:
+                    bucket = (author, [])
+                    author_roll_lines[author_key] = bucket
+                bucket[1].append(line)
 
     if source == "curated":
         title_suffix = "Curated"
@@ -370,6 +384,11 @@ def generate_wishlist(
     else:
         title_suffix = "All"
         description = "PvE and PvP weapon rolls."
+    return _format_wishlist(roll_lines, title_suffix, description)
+
+
+def _format_wishlist(roll_lines: list[str], title_suffix: str, description: str) -> str:
+    """Format pre-rendered DIM lines with a deterministic wishlist header."""
     header = [
         f"title:Weapon Wishlist — {title_suffix}",
         "description:" + description,
@@ -406,6 +425,11 @@ def main(argv: list[str] | None = None) -> int:
         help="exclude recommendation files not marked verified",
     )
     parser.add_argument(
+        "--per-author-dir",
+        default=None,
+        help="also generate one community wishlist per GitHub author in this directory",
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="check whether the output file is up to date without changing it",
@@ -427,9 +451,36 @@ def main(argv: list[str] | None = None) -> int:
     if not output.is_absolute():
         output = root / output
 
+    per_author_dir = Path(args.per_author_dir) if args.per_author_dir else None
+    if per_author_dir is not None and not per_author_dir.is_absolute():
+        per_author_dir = root / per_author_dir
+    if per_author_dir is not None and args.source != "community":
+        print("--per-author-dir can only be used with --source community.", file=sys.stderr)
+        return 2
+    if per_author_dir is not None and args.mode != "all":
+        print("--per-author-dir requires --mode all so personal exports are never partially overwritten.", file=sys.stderr)
+        return 2
+
     try:
-        content = generate_wishlist(root, mode=args.mode, verified_only=args.verified_only, source=args.source)
+        author_roll_lines: dict[str, tuple[str, list[str]]] | None = (
+            {} if per_author_dir is not None else None
+        )
+        content = generate_wishlist(
+            root,
+            mode=args.mode,
+            verified_only=args.verified_only,
+            source=args.source,
+            author_roll_lines=author_roll_lines,
+        )
         roll_count = content.count("\ndimwishlist:item=")
+        author_contents: dict[str, str] = {}
+        if author_roll_lines is not None:
+            for author_key, (username, lines) in sorted(author_roll_lines.items()):
+                author_contents[author_key + ".txt"] = _format_wishlist(
+                    lines,
+                    f"Community — @{username}",
+                    f"Community rolls submitted by @{username}.",
+                )
         if args.check:
             try:
                 current = output.read_text(encoding="utf-8")
@@ -442,11 +493,50 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
                 return 1
+            if per_author_dir is not None:
+                current_names = {
+                    path.name for path in per_author_dir.glob("*.txt") if path.is_file()
+                } if per_author_dir.is_dir() else set()
+                expected_names = set(author_contents)
+                if current_names != expected_names:
+                    missing = sorted(expected_names - current_names)
+                    obsolete = sorted(current_names - expected_names)
+                    print(
+                        f"Per-author wishlist files are out of date in {per_author_dir}; "
+                        f"missing={missing}, obsolete={obsolete}. Regenerate community exports.",
+                        file=sys.stderr,
+                    )
+                    return 1
+                for name, expected in author_contents.items():
+                    try:
+                        actual = (per_author_dir / name).read_text(encoding="utf-8")
+                    except OSError as exc:
+                        print(
+                            f"Per-author wishlist is missing or unreadable: {per_author_dir / name}: {exc}",
+                            file=sys.stderr,
+                        )
+                        return 1
+                    if actual != expected:
+                        print(
+                            f"Per-author wishlist is out of date: {per_author_dir / name}. "
+                            "Regenerate community exports.",
+                            file=sys.stderr,
+                        )
+                        return 1
             print(f"DIM wishlist is up to date: {output} ({roll_count} roll(s)).")
+            if per_author_dir is not None:
+                print(f"Per-author wishlists are up to date: {per_author_dir} ({len(author_contents)} user(s)).")
             return 0
 
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(content, encoding="utf-8", newline="\n")
+        if per_author_dir is not None:
+            per_author_dir.mkdir(parents=True, exist_ok=True)
+            for name, author_content in author_contents.items():
+                (per_author_dir / name).write_text(author_content, encoding="utf-8", newline="\n")
+            for stale_path in per_author_dir.glob("*.txt"):
+                if stale_path.is_file() and stale_path.name not in author_contents:
+                    stale_path.unlink()
     except (OSError, WishlistExportError, CatalogueError) as exc:
         print(f"DIM wishlist export failed: {exc}", file=sys.stderr)
         return 1
