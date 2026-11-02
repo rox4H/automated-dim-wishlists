@@ -50,11 +50,11 @@ class CommunityPublicationWorkflowTests(unittest.TestCase):
 
     def test_publisher_only_generates_and_stages_community_outputs(self):
         self.assertIn("python scripts/export_dim_wishlist.py --source community --output exports/d2wd_community.txt", PUBLISH)
-        self.assertIn("python scripts/export_dim_wishlist.py --source community --output exports/d2wd_community.txt --check", PUBLISH)
+        self.assertIn("python scripts/export_dim_wishlist.py --source community --output exports/d2wd_community.txt --per-author-dir exports/users --check", PUBLISH)
         self.assertNotIn("--source curated", PUBLISH)
         git_add_lines = [line.strip() for line in PUBLISH.splitlines() if line.strip().startswith("git add")]
         self.assertTrue(all("d2wd_curated.txt" not in line and "recommendations/curated" not in line for line in git_add_lines))
-        self.assertIn('git add -A -- "$TARGET_PATH" exports/d2wd_community.txt', PUBLISH)
+        self.assertIn('git add -A -- "$TARGET_PATH" exports/d2wd_community.txt exports/users/', PUBLISH)
         self.assertIn("scripts/merge_community_recommendation.py", PUBLISH)
         self.assertNotIn("*--issue-${ISSUE_NUMBER}.json", PUBLISH)
         self.assertIn('recommendations/community/(pve|pvp)/', SCOPE)

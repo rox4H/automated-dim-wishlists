@@ -20,9 +20,15 @@ https://raw.githubusercontent.com/rox4H/automated-dim-wishlists/main/exports/d2w
 https://raw.githubusercontent.com/rox4H/automated-dim-wishlists/main/exports/d2wd_community.txt
 ```
 
-In DIM, open **Settings → Wish Lists**, paste the URL, and save. Matching items show a thumbs-up. Open an item to see its suggested perks, or search `is:wishlist` to find every match.
+**Personal** — an automatically generated wishlist for one GitHub contributor. Replace the example with the lowercase GitHub login:
 
-Both URLs always serve the current `main` branch. The files are generated from the recommendations in this repository, and CI fails if a file is out of date.
+```text
+https://raw.githubusercontent.com/rox4H/automated-dim-wishlists/main/exports/users/<github-login>.txt
+```
+
+After a proposal is published, the bot posts the author's personal wishlist URL on the issue. In DIM, open **Settings → Wish Lists**, paste the URL, and save. Matching items show a thumbs-up. Open an item to see its suggested perks, or search `is:wishlist` to find every match.
+
+All wishlist URLs always serve the current `main` branch. The files are generated from the recommendations in this repository, and CI fails if a file is out of date.
 
 ## What the lists do and don't promise
 
@@ -55,7 +61,7 @@ Use the [correction issue](https://github.com/rox4H/automated-dim-wishlists/issu
 
 | Path | Contents |
 | --- | --- |
-| `exports/` | The two DIM wishlist files. Generated; don't edit by hand. |
+| `exports/` | Curated, community, and per-author DIM wishlist files. Generated; don't edit by hand. |
 | `recommendations/curated/`, `recommendations/community/` | Source records, one JSON file per weapon version and mode. |
 | `schemas/` | JSON Schemas for the records. |
 | `scripts/` | Validation and export tooling. |

@@ -122,9 +122,12 @@ jobs:
           python scripts/merge_community_recommendation.py --record-path "$RECORD_PATH" --target-path "$TARGET_PATH" --issue-number "$ISSUE_NUMBER" --github-username "$ISSUE_USERNAME" --root .
 
           # Community publication must never regenerate the curated export.
-          python scripts/export_dim_wishlist.py --source community --output exports/d2wd_community.txt
-          python scripts/export_dim_wishlist.py --source community --output exports/d2wd_community.txt --check
+          python scripts/export_dim_wishlist.py --source community --output exports/d2wd_community.txt --per-author-dir exports/users
+          python scripts/export_dim_wishlist.py --source community --output exports/d2wd_community.txt --per-author-dir exports/users --check
           grep -F "BY @${ISSUE_USERNAME} |" exports/d2wd_community.txt
+          PERSONAL_WISHLIST="exports/users/${ISSUE_USERNAME,,}.txt"
+          test -f "$PERSONAL_WISHLIST"
+          grep -F "BY @${ISSUE_USERNAME} |" "$PERSONAL_WISHLIST"
 
           # The publisher must never modify curated recommendations or their export.
           git diff --quiet HEAD -- recommendations/curated exports/d2wd_curated.txt || {
@@ -134,7 +137,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- "$TARGET_PATH" exports/d2wd_community.txt
+          git add -A -- "$TARGET_PATH" exports/d2wd_community.txt exports/users/
           git diff --cached --check
           python scripts/check_community_publication_scope.py --issue-number "$ISSUE_NUMBER" --target-path "$TARGET_PATH"
           BASE_SHA="$(git rev-parse HEAD)"
@@ -489,6 +492,7 @@ jobs:
         env:
           ISSUE_NUMBER: ${{ steps.hydrate.outputs.issue_number }}
           TARGET_PATH: ${{ steps.build.outputs.target_path }}
+          ISSUE_USERNAME: ${{ steps.build.outputs.github_username }}
           COMMIT_SHA: ${{ steps.merge.outputs.commit_sha || steps.prepare.outputs.commit_sha }}
           HAS_CHANGES: ${{ steps.prepare.outputs.has_changes }}
         with:
@@ -498,6 +502,12 @@ jobs:
             const issue = (await github.rest.issues.get({ owner, repo, issue_number: issueNumber })).data;
             const target = process.env.TARGET_PATH;
             const sha = process.env.COMMIT_SHA;
+            const username = process.env.ISSUE_USERNAME;
+            if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(username)) {
+              throw new Error('The original issue author is not a valid GitHub login.');
+            }
+            const personalWishlist = 'exports/users/' + username.toLowerCase() + '.txt';
+            const personalWishlistUrl = 'https://raw.githubusercontent.com/' + owner + '/' + repo + '/main/' + personalWishlist;
             const hasChanges = process.env.HAS_CHANGES === 'true';
             const message = [
               '<!-- verified-community-publication -->',
@@ -509,6 +519,7 @@ jobs:
               '',
               '- JSON: [' + target + '](' + 'https://github.com/' + owner + '/' + repo + '/blob/' + sha + '/' + target + ')',
               '- Community wishlist: [exports/d2wd_community.txt](' + 'https://github.com/' + owner + '/' + repo + '/blob/' + sha + '/exports/d2wd_community.txt)',
+              '- Your personal wishlist: [' + personalWishlist + '](' + personalWishlistUrl + ')',
               '- Commit: [' + sha.slice(0, 7) + '](' + 'https://github.com/' + owner + '/' + repo + '/commit/' + sha + ')',
               '',
               'The JSON records the original issue creator and the GitHub Actions actor responsible for publication. Its publication_status is mechanically_validated and its validation_scope is canonical-dependencies-and-perk-slots: the exact weapon version, complete pool, and four selected perks passed the canonical checks. The bot has not reviewed the quality of the roll, and the status does not claim sandbox-specific performance or optimality.'

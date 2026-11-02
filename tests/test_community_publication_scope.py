@@ -63,5 +63,20 @@ class CommunityPublicationScopeTests(unittest.TestCase):
             validate_publication_scope(self.issue_number, self.target, [], target_exists_in_head=False, target_unchanged_from_head=True)
 
 
+
+    def test_allows_generated_personal_wishlist_exports(self):
+        validate_publication_scope(
+            self.issue_number,
+            self.target,
+            [self.target, "exports/d2wd_community.txt", "exports/users/alice.txt"],
+        )
+
+    def test_rejects_unsafe_personal_wishlist_paths(self):
+        for path in ("exports/users/../alice.txt", "exports/users/Alice.txt", "exports/users/alice.json"):
+            with self.subTest(path=path), self.assertRaisesRegex(
+                PublicationScopeError, "only the target weapon/mode community JSON"
+            ):
+                validate_publication_scope(self.issue_number, self.target, [self.target, path])
+
 if __name__ == "__main__":
     unittest.main()
