@@ -1,0 +1,24 @@
+{
+  "weapon_id": "apex-predator_s21",
+  "weapon_perk_pool_id": "apex-predator_s21",
+  "publication_status": "mechanically_validated",
+  "validation_scope": "canonical-dependencies-and-perk-slots",
+  "recommendations": [
+    {
+      "mode": "pve",
+      "name": "Solar boss damage",
+      "barrel": "quick-launch",
+      "magazine": "impact-casing",
+      "perk_3": "reconstruction",
+      "perk_4": "bait-and-switch",
+      "description": "```text\nBoss damage\n```",
+      "github_username": "geisa09",
+      "issue_number": 21,
+      "submitted_at": "2026-10-30T19:25:43Z",
+      "publication_status": "mechanically_validated",
+      "validation_scope": "canonical-dependencies-and-perk-slots",
+      "published_by": "github-actions[bot]"
+    }
+  ],
+  "published_by": "github-actions[bot]"
+}
