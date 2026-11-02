@@ -1,5 +1,6 @@
 title:Weapon Wishlist — Community
 description:Player-submitted PvE and PvP weapon rolls.
 
-dimwishlist:item=833898322&perks=839103960,2728077304,706527132,4293542123#notes:PVE | BY @rox4H | Inital test commit GR
-dimwishlist:item=2558925366&perks=839103960,2323714493,3661280383,1851219615#notes:PVE | BY @rox4H | strand add-clear
+dimwishlist:item=833898322&perks=839105230,1885400500,3017780555,4293542123#notes:PVE | BY @rox4H | Inital test commit GR
+dimwishlist:item=1801007332&perks=839105230,3142289711,2980589453,3640170453#notes:PVE | BY @rox4H | healing god
+dimwishlist:item=2558925366&perks=839105230,2680121939,3643424744,2594592626#notes:PVE | BY @rox4H | strand add-clear
